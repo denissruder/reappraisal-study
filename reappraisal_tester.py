@@ -26,7 +26,7 @@ def get_firestore_client():
         
     try:
         # Load the dictionary from the multi-line string secret
-        key_dict = json.loads(st.secrets["gcp_service_account"])
+        key_dict = json.loads(st.secrets["gcp_service_account"],strict=False)
         db = firestore.Client.from_service_account_info(key_dict)
         st.sidebar.success("✅ Database Connected")
         return db
