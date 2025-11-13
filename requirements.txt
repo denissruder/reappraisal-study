@@ -1,6 +1,6 @@
 streamlit
-langchain-google-genai==0.0.12
+langchain-google-genai
 google-cloud-firestore
-langchain==0.1.17
-langchain-community==0.0.36
-langchain-core==0.1.47
+langchain
+langchain-community
+langchain-core
