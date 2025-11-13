@@ -4,7 +4,7 @@ import json
 import datetime
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain_community.chains import LLMChain
 
 # --- NEW: Firestore Imports (Requires 'google-cloud-firestore' package) ---
 try:
