@@ -360,4 +360,4 @@ elif st.session_state.page == 'experiment':
 
 st.sidebar.markdown("---")
 st.sidebar.header("Debugging Data")
-st.sidebar.json(st.session_state.get('motive_scores', 'Not Collected'))
+st.sidebar.json(st.session_state.get('motive_scores', {'Status': 'Not Collected'}))
