@@ -274,7 +274,7 @@ def show_experiment_page():
     selected_condition = st.radio(
         "Select Experimental Condition:",
         ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"],
-        index=2, # Default to the most personalized condition
+        index=0, # Default to the most personalized condition
         horizontal=True
     )
 
