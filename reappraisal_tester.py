@@ -367,9 +367,10 @@ def show_experiment_page():
                 }
                 
                 if save_data(trial_data):
-                    # Clear state for a new trial and go to Thank You page
-                    del st.session_state.show_ratings
-                    st.session_state.page = 'thank_you' # Go to new thank you page
+                    # --- FIX FOR FLICKER: Hide ratings immediately ---
+                    st.session_state.show_ratings = False 
+                    # --- Go to Thank You page ---
+                    st.session_state.page = 'thank_you' 
                     st.rerun()
 
 def show_thank_you_page():
@@ -386,7 +387,8 @@ def show_thank_you_page():
 
     if st.button("Run Another Trial", type="primary"):
         # Reset the trial-specific data (guidance, ratings, event text)
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings']:
+        # Added 'show_ratings' to the cleanup list for robustness
+        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input']:
             if key in st.session_state:
                 del st.session_state[key]
         
