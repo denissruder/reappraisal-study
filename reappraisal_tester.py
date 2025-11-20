@@ -381,12 +381,17 @@ def show_thank_you_page():
     Your contribution is valuable to our research on personalized cognitive strategies.
 
     Would you like to run the experiment one more time with a **different stressful event**?
+    *(Note: Your current Motive Importance Assessments will be used for the next trial.)*
     """)
 
     if st.button("Run Another Trial", type="primary"):
-        # Reset to motive assessment page to start a new, full trial
-        # We keep motive_scores if the user wants to use the same importance ratings
-        st.session_state.page = 'motives'
+        # Reset the trial-specific data (guidance, ratings, event text)
+        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings']:
+            if key in st.session_state:
+                del st.session_state[key]
+        
+        # Go directly to the experiment page, using the existing motive scores
+        st.session_state.page = 'experiment'
         st.rerun()
 
 
