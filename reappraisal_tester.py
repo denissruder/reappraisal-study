@@ -226,7 +226,7 @@ def show_motives_page():
             if all(motive_scores.values()):
                 st.session_state.motive_scores = motive_scores
                 st.session_state.page = 'experiment'
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.warning("Please rate all motives before proceeding.")
 
@@ -338,7 +338,7 @@ def show_experiment_page():
                     del st.session_state.show_ratings
                     st.session_state.page = 'motives' # Loop back to motives page
                     st.success("Data saved. Starting a new trial.")
-                    st.experimental_rerun()
+                    st.rerun()
 
 
 # --- 5. MAIN APP EXECUTION ---
