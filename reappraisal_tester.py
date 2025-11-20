@@ -119,7 +119,7 @@ def get_prompts_for_condition(condition, motive_scores, event_text, analysis_dat
     congruence_ratings = analysis_data.get("congruence_ratings", {})
     scores_list_formatted = motive_scores.values()
     # --- 1. Control Condition ---
-    if condition == "1. Control (Neutral)":
+    if condition == "1. Neutral":
         template = """
                     You are a Neutral Repurposing Assistant. Your task is to generate reappraisal guidance by helping the user identify a motive, value, or goal that the stressful situation they described is, in some way, congruent with. Your guidance must encourage a shift in perspective.
 
@@ -137,7 +137,7 @@ def get_prompts_for_condition(condition, motive_scores, event_text, analysis_dat
     elif condition == "2. Appraisal-Assessed":
 
         template = f"""
-        You are an Appraisal-Assessing Repurposing Assistant. Your task is to generate reappraisal guidance based on **{congruence_ratings}**.
+        You are an Appraisal-Assessed Repurposing Assistant. Your task is to generate reappraisal guidance based on **{congruence_ratings}**.
 
         Rules:
         1. Generate guidance that leverages the 'Potential congruence' motive to reframe the event.
@@ -226,14 +226,14 @@ def show_motives_page():
             if all(motive_scores.values()):
                 st.session_state.motive_scores = motive_scores
                 st.session_state.page = 'experiment'
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.warning("Please rate all motives before proceeding.")
 
 def show_experiment_page():
     """Renders Page 3: Core Experiment Logic."""
     
-    st.title("🧪 Step 3: Event Elicitation & Guidance")
+    st.title("🧪 Step 3: Guidance")
     
     # Check if motive scores are available
     if 'motive_scores' not in st.session_state:
@@ -263,7 +263,7 @@ def show_experiment_page():
         
         # --- STAGE 1: LLM Appraisal Analysis (Step 3) ---
         analysis_data = None
-        with st.spinner("STAGE 1/2: Analyzing Congruence..."):
+        with st.spinner("STAGE 1/2: Analyzing Congruence (Step 3)..."):
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text)
             
         if analysis_data:
@@ -338,7 +338,7 @@ def show_experiment_page():
                     del st.session_state.show_ratings
                     st.session_state.page = 'motives' # Loop back to motives page
                     st.success("Data saved. Starting a new trial.")
-                    st.rerun()
+                    st.experimental_rerun()
 
 
 # --- 5. MAIN APP EXECUTION ---
