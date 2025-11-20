@@ -12,6 +12,7 @@ TEMP = 0.5
 MOTIVES = ["Achievement & Success", "Security & Stability", "Affiliation & Belonging", "Stimulation & Excitement", "Self-Direction & Autonomy"]
 RATING_DIMENSIONS = ["Believability", "Appropriateness", "Emotional Valence"]
 MOTIVE_SCALE_MAX = 7 # All ratings will be on a 1-7 scale
+MIN_EVENT_LENGTH = 200 # Minimum number of characters required for the event description
 
 try:
     from google.cloud import firestore
@@ -300,17 +301,29 @@ def show_experiment_page():
         "Describe a recent, challenging, or stressful event in detail:",
         key="event_input",
         height=200,
-        placeholder="Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital.",
+        placeholder=f"Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital. (Minimum {MIN_EVENT_LENGTH} characters required)",
     )
-
-    # --- FIX: Robustly check for text and ensure clean state ---
-    # Determine if there is actual text content (not just empty or whitespace)
-    has_text = bool(event_text and event_text.strip())
-    # Button is disabled if: 1. Generation is running, OR 2. Input is empty.
-    button_disabled = st.session_state.is_generating or not has_text
     
-    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled) and has_text:
-        # 1. Capture data and set state to start generation (and disable button)
+    # Display current length and required length
+    current_length = len(event_text)
+    st.markdown(f"Current length: **{current_length}** characters.")
+
+
+    # --- BUTTON LOGIC: Only disabled if generation is running ---
+    button_disabled = st.session_state.is_generating
+    
+    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled):
+        
+        # 1. Input Validation Check (runs AFTER button is pressed)
+        if current_length < MIN_EVENT_LENGTH:
+            st.error(f"⚠️ Fill in an event description with at least {MIN_EVENT_LENGTH} characters for a proper LLM analysis. Currently, you have {current_length} characters.")
+            # Set text back to prevent accidental trigger on next rerun if the user doesn't clear the error
+            st.session_state.event_text_for_llm = ""
+            st.session_state.is_generating = False 
+            st.rerun() # Rerun to remove the spinner if it was triggered briefly
+            return
+
+        # 2. Start Generation Process
         st.session_state.is_generating = True
         st.session_state.event_text_for_llm = event_text
         st.rerun()
@@ -354,7 +367,8 @@ def show_experiment_page():
     
         # 3. Clean up and trigger final display rerun
         st.session_state.is_generating = False
-        del st.session_state.event_text_for_llm
+        if 'event_text_for_llm' in st.session_state:
+            del st.session_state.event_text_for_llm
         st.rerun()
 
     # --- Participant Rating Collection and Data Submission ---
