@@ -263,7 +263,7 @@ def show_experiment_page():
         
         # --- STAGE 1: LLM Appraisal Analysis (Step 3) ---
         analysis_data = None
-        with st.spinner("STAGE 1/2: Analyzing Congruence (Step 3)..."):
+        with st.spinner("STAGE 1/2: Analyzing Congruence..."):
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text)
             
         if analysis_data:
