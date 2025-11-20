@@ -262,6 +262,10 @@ def show_motives_page():
 def show_experiment_page():
     """Renders the Core Experiment Logic page."""
     
+    # Check for pending redirect status
+    if st.session_state.get('redirect_pending', False):
+        st.stop() # Stop execution immediately if a redirect is pending to prevent flicker
+
     st.title("🧪 Experiment: Event Elicitation & Guidance")
     
     # Check if motive scores are available
@@ -326,97 +330,3 @@ def show_experiment_page():
                 except Exception as e:
                     st.error(f"An error occurred during LLM Guidance generation. Error: {e}")
                     st.session_state.show_ratings = False
-    
-    # --- Participant Rating Collection and Data Submission ---
-    if st.session_state.get('show_ratings', False) and 'final_guidance' in st.session_state:
-        
-        st.markdown("---")
-        st.markdown("### Participant Rating & Submission")
-        st.write("Rate the generated guidance based on your experience:")
-        
-        st.markdown("#### 💬 Generated Guidance")
-        st.success(st.session_state.final_guidance)
-
-        # Initialize ratings in session state if not present
-        if "collected_ratings" not in st.session_state:
-            # Initialize with default value for 1-7 scale (usually 4)
-            st.session_state.collected_ratings = {dim: 4 for dim in RATING_DIMENSIONS}
-        
-        with st.form("rating_form"):
-            
-            # Rating Sliders - Uses MOTIVE_SCALE_MAX (7)
-            for dim in RATING_DIMENSIONS:
-                st.session_state.collected_ratings[dim] = st.slider(
-                    f"{dim} (1-{MOTIVE_SCALE_MAX})", 
-                    1, MOTIVE_SCALE_MAX, 4, 
-                    key=dim
-                )
-            
-            # Submission button
-            if st.form_submit_button("Submit Ratings and Save Trial Data"):
-                
-                # Prepare data for Firestore
-                trial_data = {
-                    "timestamp": datetime.datetime.now(datetime.timezone.utc),
-                    "condition": st.session_state.selected_condition,
-                    "event_description": st.session_state.event_text,
-                    "motive_importance_scores": st.session_state.motive_scores, # User's 1-7 ratings
-                    "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis (now 1-7 scale)
-                    "llm_guidance": st.session_state.final_guidance,
-                    "participant_ratings": st.session_state.collected_ratings, # User's 1-7 ratings for guidance
-                }
-                
-                if save_data(trial_data):
-                    # --- FIX FOR FLICKER: Hide ratings immediately ---
-                    st.session_state.show_ratings = False 
-                    # --- Go to Thank You page ---
-                    st.session_state.page = 'thank_you' 
-                    st.rerun()
-
-def show_thank_you_page():
-    """Renders the Thank You page with option to restart the experiment."""
-    st.title("🎉 Thank You for Participating!")
-    st.success("Your trial data has been successfully submitted and saved.")
-
-    st.markdown("""
-    Your contribution is valuable to our research on personalized cognitive strategies.
-
-    Would you like to run the experiment one more time with a **different stressful event**?
-    *(Note: Your current Motive Importance Assessments will be used for the next trial.)*
-    """)
-
-    if st.button("Run Another Trial", type="primary"):
-        # Reset the trial-specific data (guidance, ratings, event text)
-        # Added 'show_ratings' to the cleanup list for robustness
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input']:
-            if key in st.session_state:
-                del st.session_state[key]
-        
-        # Go directly to the experiment page, using the existing motive scores
-        st.session_state.page = 'experiment'
-        st.rerun()
-
-
-# --- 5. MAIN APP EXECUTION ---
-
-# Initialize page state
-if 'page' not in st.session_state:
-    st.session_state.page = 'consent'
-
-# Display current page
-st.sidebar.title("Protocol Status")
-st.sidebar.markdown(f"**Current Page:** `{st.session_state.page}`")
-
-if st.session_state.page == 'consent':
-    show_consent_page()
-elif st.session_state.page == 'motives':
-    show_motives_page()
-elif st.session_state.page == 'experiment':
-    show_experiment_page()
-elif st.session_state.page == 'thank_you': # Handle the new page state
-    show_thank_you_page()
-
-st.sidebar.markdown("---")
-st.sidebar.header("Debugging Data")
-# FIX: Change the default value to a dictionary so st.json always receives structured data.
-st.sidebar.json(st.session_state.get('motive_scores', {'Status': 'Not Collected'}))
