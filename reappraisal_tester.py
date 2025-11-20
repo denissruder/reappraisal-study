@@ -262,6 +262,11 @@ def show_motives_page():
 def show_experiment_page():
     """Renders the Core Experiment Logic page."""
     
+    # --- REDIRECTION GUARD (Fixes flicker on submit) ---
+    if st.session_state.get('is_redirecting', False):
+        return
+    # ----------------------------------------------------
+    
     st.title("🧪 Experiment: Event Elicitation & Guidance")
     
     # Check if motive scores are available
@@ -270,17 +275,24 @@ def show_experiment_page():
         st.session_state.page = 'motives'
         return
     
+    # Initialize necessary state variables
+    if 'is_generating' not in st.session_state:
+        st.session_state.is_generating = False
+    if 'event_text_for_llm' not in st.session_state:
+        st.session_state.event_text_for_llm = ""
+        
     # Experiment Condition Selection (Radio buttons on top)
     condition_options = ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"]
-    # Set default index to 0 for "1. Neutral"
     default_index = condition_options.index("1. Neutral") 
     
     selected_condition = st.radio(
         "Select Experimental Condition:",
         condition_options,
-        index=default_index, # Set default to "1. Neutral"
+        index=default_index, 
         horizontal=True
     )
+    # Store selected condition immediately for the LLM execution phase
+    st.session_state.selected_condition = selected_condition 
 
     # Event Input Area
     st.subheader(f"Condition Selected: {selected_condition}")
@@ -292,41 +304,56 @@ def show_experiment_page():
         placeholder="Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital.",
     )
 
-    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True) and event_text:
+    # --- BUTTON LOGIC: Disable button while LLM is running ---
+    button_disabled = st.session_state.is_generating or not event_text
+    
+    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled) and event_text:
+        # 1. Capture data and set state to start generation (and disable button)
+        st.session_state.is_generating = True
+        st.session_state.event_text_for_llm = event_text
+        st.rerun()
+
+    # --- LLM EXECUTION PHASE ---
+    if st.session_state.get('is_generating', False) and 'event_text_for_llm' in st.session_state:
         
-        # --- LLM Appraisal Analysis ---
+        event_text_to_process = st.session_state.event_text_for_llm
         analysis_data = None
-        with st.spinner("Analyzing Congruence..."):
-            analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text)
+        guidance = ""
+
+        with st.spinner("Analyzing Congruence and Generating Guidance..."):
             
-        if analysis_data:
+            # 1. Appraisal Analysis
+            analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
-            # Get the correct prompt template
-            prompt_template = get_prompts_for_condition(
-                selected_condition, st.session_state.motive_scores, event_text, analysis_data
-            )
-            
-            # --- Guidance Generation (LLM Call 2) ---
-            guidance = ""
-            with st.spinner(f"Generating Guidance for {selected_condition}..."):
+            if analysis_data:
+                
+                # 2. Guidance Generation
+                prompt_template = get_prompts_for_condition(
+                    st.session_state.selected_condition, st.session_state.motive_scores, event_text_to_process, analysis_data
+                )
                 
                 chain = prompt_template | llm
-                
                 try:
-                    response = chain.invoke({"event_text": event_text})
+                    response = chain.invoke({"event_text": event_text_to_process})
                     guidance = response.content
                     
-                    # Store data in session state for later submission
+                    # Success: Store data and prepare for display
                     st.session_state.final_guidance = guidance
                     st.session_state.analysis_data = analysis_data
-                    st.session_state.selected_condition = selected_condition
-                    st.session_state.event_text = event_text
+                    st.session_state.event_text = event_text_to_process
                     st.session_state.show_ratings = True
                     
                 except Exception as e:
                     st.error(f"An error occurred during LLM Guidance generation. Error: {e}")
                     st.session_state.show_ratings = False
+            else:
+                st.session_state.show_ratings = False
     
+        # 3. Clean up and trigger final display rerun
+        st.session_state.is_generating = False
+        del st.session_state.event_text_for_llm
+        st.rerun()
+
     # --- Participant Rating Collection and Data Submission ---
     if st.session_state.get('show_ratings', False) and 'final_guidance' in st.session_state:
         
@@ -334,23 +361,24 @@ def show_experiment_page():
         st.markdown("### Participant Rating & Submission")
         st.write("Rate the generated guidance based on your experience:")
         
-        # Using a container here to wrap the guidance and prevent shifting
+        # Using a container to wrap the guidance
         with st.container(border=True):
             st.markdown("#### 💬 Generated Guidance")
             st.success(st.session_state.final_guidance)
 
         # Initialize ratings in session state if not present
         if "collected_ratings" not in st.session_state:
-            # Initialize with default value for 1-7 scale (usually 4)
             st.session_state.collected_ratings = {dim: 4 for dim in RATING_DIMENSIONS}
         
         with st.form("rating_form"):
             
             # Rating Sliders - Uses MOTIVE_SCALE_MAX (7)
             for dim in RATING_DIMENSIONS:
+                # Use value from session state if it exists, otherwise default to 4
+                default_value = st.session_state.collected_ratings.get(dim, 4)
                 st.session_state.collected_ratings[dim] = st.slider(
                     f"{dim} (1-{MOTIVE_SCALE_MAX})", 
-                    1, MOTIVE_SCALE_MAX, 4, 
+                    1, MOTIVE_SCALE_MAX, default_value, 
                     key=dim
                 )
             
@@ -363,14 +391,15 @@ def show_experiment_page():
                     "condition": st.session_state.selected_condition,
                     "event_description": st.session_state.event_text,
                     "motive_importance_scores": st.session_state.motive_scores, # User's 1-7 ratings
-                    "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis (now 1-7 scale)
+                    "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis
                     "llm_guidance": st.session_state.final_guidance,
                     "participant_ratings": st.session_state.collected_ratings, # User's 1-7 ratings for guidance
                 }
                 
                 if save_data(trial_data):
-                    # Hide ratings immediately and trigger page change
-                    st.session_state.show_ratings = False 
+                    # Hide ratings, set redirect flag, and trigger page change
+                    st.session_state.show_ratings = False
+                    st.session_state.is_redirecting = True # <--- Flicker Fix
                     st.session_state.page = 'thank_you' 
                     st.rerun()
 
@@ -387,8 +416,8 @@ def show_thank_you_page():
     """)
 
     if st.button("Run Another Trial", type="primary"):
-        # Reset the trial-specific data (guidance, ratings, event text)
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input']:
+        # Reset the trial-specific data and redirect flag
+        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating']:
             if key in st.session_state:
                 del st.session_state[key]
         
@@ -413,10 +442,9 @@ elif st.session_state.page == 'motives':
     show_motives_page()
 elif st.session_state.page == 'experiment':
     show_experiment_page()
-elif st.session_state.page == 'thank_you': # Handle the new page state
+elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
 
 st.sidebar.markdown("---")
 st.sidebar.header("Debugging Data")
-# FIX: Change the default value to a dictionary so st.json always receives structured data.
 st.sidebar.json(st.session_state.get('motive_scores', {'Status': 'Not Collected'}))
