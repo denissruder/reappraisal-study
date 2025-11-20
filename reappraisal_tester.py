@@ -201,7 +201,6 @@ def save_data(data):
     """Saves the comprehensive trial data as a new document in Firestore."""
     try:
         db.collection(COLLECTION_NAME).add(data)
-        # REMOVED: st.success("✅ Trial data saved successfully to Firestore!")
         return True
     except Exception as e:
         st.error(f"❌ Failed to save data: {e}. Check Firestore rules and credentials.")
@@ -304,10 +303,13 @@ def show_experiment_page():
         placeholder="Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital.",
     )
 
-    # --- BUTTON LOGIC: Disable button while LLM is running ---
-    button_disabled = st.session_state.is_generating or not event_text
+    # --- FIX: Robustly check for text and ensure clean state ---
+    # Determine if there is actual text content (not just empty or whitespace)
+    has_text = bool(event_text and event_text.strip())
+    # Button is disabled if: 1. Generation is running, OR 2. Input is empty.
+    button_disabled = st.session_state.is_generating or not has_text
     
-    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled) and event_text:
+    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled) and has_text:
         # 1. Capture data and set state to start generation (and disable button)
         st.session_state.is_generating = True
         st.session_state.event_text_for_llm = event_text
@@ -320,6 +322,7 @@ def show_experiment_page():
         analysis_data = None
         guidance = ""
 
+        # Using a spinner while the LLM runs
         with st.spinner("Analyzing Congruence and Generating Guidance..."):
             
             # 1. Appraisal Analysis
@@ -416,7 +419,7 @@ def show_thank_you_page():
     """)
 
     if st.button("Run Another Trial", type="primary"):
-        # Reset the trial-specific data and redirect flag
+        # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
         for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating']:
             if key in st.session_state:
                 del st.session_state[key]
