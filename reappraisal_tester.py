@@ -271,10 +271,14 @@ def show_experiment_page():
         return
     
     # Experiment Condition Selection (Radio buttons on top)
+    condition_options = ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"]
+    # Set default index to 0 for "1. Neutral"
+    default_index = condition_options.index("1. Neutral") 
+    
     selected_condition = st.radio(
         "Select Experimental Condition:",
-        ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"],
-        index=0, # Default to the most personalized condition
+        condition_options,
+        index=default_index, # Set default to "1. Neutral"
         horizontal=True
     )
 
@@ -363,10 +367,27 @@ def show_experiment_page():
                 }
                 
                 if save_data(trial_data):
-                    # Clear state for a new trial and go back to motives or consent
+                    # Clear state for a new trial and go to Thank You page
                     del st.session_state.show_ratings
-                    st.session_state.page = 'motives' # Loop back to motives page
+                    st.session_state.page = 'thank_you' # Go to new thank you page
                     st.rerun()
+
+def show_thank_you_page():
+    """Renders the Thank You page with option to restart the experiment."""
+    st.title("🎉 Thank You for Participating!")
+    st.success("Your trial data has been successfully submitted and saved.")
+
+    st.markdown("""
+    Your contribution is valuable to our research on personalized cognitive strategies.
+
+    Would you like to run the experiment one more time with a **different stressful event**?
+    """)
+
+    if st.button("Run Another Trial", type="primary"):
+        # Reset to motive assessment page to start a new, full trial
+        # We keep motive_scores if the user wants to use the same importance ratings
+        st.session_state.page = 'motives'
+        st.rerun()
 
 
 # --- 5. MAIN APP EXECUTION ---
@@ -385,6 +406,8 @@ elif st.session_state.page == 'motives':
     show_motives_page()
 elif st.session_state.page == 'experiment':
     show_experiment_page()
+elif st.session_state.page == 'thank_you': # Handle the new page state
+    show_thank_you_page()
 
 st.sidebar.markdown("---")
 st.sidebar.header("Debugging Data")
