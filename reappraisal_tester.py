@@ -263,17 +263,17 @@ def show_experiment_page():
         
         # --- STAGE 1: LLM Appraisal Analysis (Step 3) ---
         analysis_data = None
-        with st.spinner("STAGE 1/2: Analyzing Congruence (Step 3)..."):
+        with st.spinner("STAGE 1/2: Analyzing Congruence..."):
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text)
             
         if analysis_data:
             
-            # 1. Get the correct prompt template (Step 4 preparation)
+            # 1. Get the correct prompt template
             prompt_template = get_prompts_for_condition(
                 selected_condition, st.session_state.motive_scores, event_text, analysis_data
             )
             
-            # --- STAGE 2: Guidance Generation (Step 4 - LLM Call 2) ---
+            # --- STAGE 2: Guidance Generation ---
             guidance = ""
             with st.spinner(f"STAGE 2/2: Generating Guidance for {selected_condition}..."):
                 
@@ -306,7 +306,7 @@ def show_experiment_page():
 
         # Initialize ratings in session state if not present
         if "collected_ratings" not in st.session_state:
-            # Initialize with default value for 1-7 scale (usually 4)
+            # Initialize with default value for 1-7 scale (default 4)
             st.session_state.collected_ratings = {dim: 4 for dim in RATING_DIMENSIONS}
         
         with st.form("rating_form"):
