@@ -304,13 +304,13 @@ def show_experiment_page():
         placeholder=f"Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital. (Minimum {MIN_EVENT_LENGTH} characters required)",
     )
     
-    # *** FIX FOR PASTE ISSUE ***
     # Read the current content directly from session state (which holds the latest input)
     event_text = st.session_state.get("event_input", "") 
     
-    # Display current length and required length
+    # --- Removed the character length display to fix the lag issue. ---
     current_length = len(event_text)
-    st.markdown(f"Current length: **{current_length}** characters.")
+    # st.markdown(f"Current length: **{current_length}** characters.")
+    # -----------------------------------------------------------------
 
 
     # --- BUTTON LOGIC: Only disabled if generation is running ---
@@ -320,7 +320,7 @@ def show_experiment_page():
         
         # 1. Input Validation Check (runs AFTER button is pressed)
         if current_length < MIN_EVENT_LENGTH:
-            st.error(f"⚠️ Fill in an event description with at least {MIN_EVENT_LENGTH} characters for a proper LLM analysis. Currently, you have {current_length} characters.")
+            st.error(f"⚠️ Please ensure your event description is substantial. A minimum of {MIN_EVENT_LENGTH} characters is required for proper LLM analysis.")
             # Set text back to prevent accidental trigger on next rerun if the user doesn't clear the error
             st.session_state.event_text_for_llm = ""
             st.session_state.is_generating = False 
