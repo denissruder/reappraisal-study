@@ -306,25 +306,29 @@ def show_experiment_page():
     
     # Read the current content directly from session state (which holds the latest input)
     event_text = st.session_state.get("event_input", "") 
-    
-    # --- Removed the character length display to fix the lag issue. ---
     current_length = len(event_text)
-    # st.markdown(f"Current length: **{current_length}** characters.")
-    # -----------------------------------------------------------------
 
+    # --- Pre-click Feedback and Button Control (New Logic) ---
+    is_length_valid = current_length >= MIN_EVENT_LENGTH
+    
+    if not is_length_valid:
+        remaining_chars = MIN_EVENT_LENGTH - current_length
+        # Display a clear warning message when the length is insufficient
+        st.warning(
+            f"⚠️ Please enter more detail. You need **{remaining_chars}** more characters to meet the minimum requirement of {MIN_EVENT_LENGTH}."
+        )
 
-    # --- BUTTON LOGIC: Only disabled if generation is running ---
-    button_disabled = st.session_state.is_generating
+    # --- BUTTON LOGIC: Disabled if generation is running OR length is too short ---
+    button_disabled = st.session_state.is_generating or not is_length_valid
     
     if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled):
         
-        # 1. Input Validation Check (runs AFTER button is pressed)
-        if current_length < MIN_EVENT_LENGTH:
-            st.error(f"⚠️ Please ensure your event description is substantial. A minimum of {MIN_EVENT_LENGTH} characters is required for proper LLM analysis.")
-            # Set text back to prevent accidental trigger on next rerun if the user doesn't clear the error
-            st.session_state.event_text_for_llm = ""
+        # 1. Input Validation Check (Safety check, though button should be disabled)
+        if not is_length_valid:
+            # If the button was somehow clicked, log error and stop.
+            st.error("Validation failed. Please increase the event description length.")
             st.session_state.is_generating = False 
-            st.rerun() # Rerun to remove the spinner if it was triggered briefly
+            st.rerun() 
             return
 
         # 2. Start Generation Process
