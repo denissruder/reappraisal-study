@@ -308,28 +308,24 @@ def show_experiment_page():
     event_text = st.session_state.get("event_input", "") 
     current_length = len(event_text)
 
-    # --- Pre-click Feedback and Button Control (New Logic) ---
-    is_length_valid = current_length >= MIN_EVENT_LENGTH
-    
-    if not is_length_valid:
-        remaining_chars = MIN_EVENT_LENGTH - current_length
-        # Display a clear warning message when the length is insufficient
-        st.warning(
-            f"⚠️ Please enter more detail. You need **{remaining_chars}** more characters to meet the minimum requirement of {MIN_EVENT_LENGTH}."
-        )
-
-    # --- BUTTON LOGIC: Disabled if generation is running OR length is too short ---
-    button_disabled = st.session_state.is_generating or not is_length_valid
+    # --- BUTTON LOGIC: Only disabled if generation is running ---
+    # The button is now always clickable unless actively generating.
+    button_disabled = st.session_state.is_generating
     
     if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled):
         
-        # 1. Input Validation Check (Safety check, though button should be disabled)
-        if not is_length_valid:
-            # If the button was somehow clicked, log error and stop.
-            st.error("Validation failed. Please increase the event description length.")
+        # 1. Input Validation Check (runs AFTER button is pressed)
+        if current_length < MIN_EVENT_LENGTH:
+            remaining_chars = MIN_EVENT_LENGTH - current_length
+            # Display a temporary error message that shows the required length
+            st.error(
+                f"⚠️ Please ensure your event description is substantial. A minimum of {MIN_EVENT_LENGTH} characters is required for proper LLM analysis. You need **{remaining_chars}** more characters."
+            )
+            
+            # Reset state and return to prevent LLM call
+            st.session_state.event_text_for_llm = ""
             st.session_state.is_generating = False 
-            st.rerun() 
-            return
+            return # Stop execution and wait for the user to fix the input
 
         # 2. Start Generation Process
         st.session_state.is_generating = True
@@ -438,7 +434,7 @@ def show_thank_you_page():
     Your contribution is valuable to our research on personalized cognitive strategies.
 
     Would you like to run the experiment one more time with a **different stressful event**?
-    *(Note: Your current Motive Importance Assessments will be used for the next trial.)*
+    *(Note: Your current Motive Importance Assessments will be used for the next trial.))*
     """)
 
     if st.button("Run Another Trial", type="primary"):
