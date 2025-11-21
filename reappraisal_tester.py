@@ -396,6 +396,10 @@ def show_experiment_page():
         if "collected_ratings" not in st.session_state:
             st.session_state.collected_ratings = {dim: 4 for dim in RATING_DIMENSIONS}
         
+        # Initialize comment state if not present
+        if "guidance_comments" not in st.session_state:
+             st.session_state.guidance_comments = ""
+        
         with st.form("rating_form"):
             
             # Rating Sliders - Uses MOTIVE_SCALE_MAX (7)
@@ -407,6 +411,14 @@ def show_experiment_page():
                     1, MOTIVE_SCALE_MAX, default_value, 
                     key=dim
                 )
+            
+            # --- NEW COMMENTS FIELD ---
+            st.session_state.guidance_comments = st.text_area(
+                "Optional Comments on Guidance:", 
+                key="comments_input", 
+                height=100, 
+                placeholder="Enter any feedback, thoughts, or suggestions about the guidance here."
+            )
             
             # Submission button
             if st.form_submit_button("Submit Ratings and Save Trial Data"):
@@ -420,6 +432,7 @@ def show_experiment_page():
                     "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis (now just congruence_ratings)
                     "llm_guidance": st.session_state.final_guidance,
                     "participant_ratings": st.session_state.collected_ratings, # User's 1-7 ratings for guidance
+                    "participant_comments": st.session_state.guidance_comments, # <--- NEW FIELD
                 }
                 
                 if save_data(trial_data):
@@ -443,7 +456,7 @@ def show_thank_you_page():
 
     if st.button("Run Another Trial", type="primary"):
         # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating']:
+        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating', 'guidance_comments']:
             if key in st.session_state:
                 del st.session_state[key]
         
