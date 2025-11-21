@@ -67,10 +67,8 @@ APPRAISAL_ANALYSIS_TEMPLATE = f"""
 You are an Appraisal Analyst. Your task is to analyze the user's event description in the context of their core motives.
 Your output MUST be a valid JSON object. Do not include any text, headers, or markdown formatting outside of the JSON block.
 
-The JSON object MUST contain three fields:
-1. "conflict_motive": The name of the motive most CONFLICTED by the event from the MOTIVE LIST.
-2. "congruence_motive": The name of a motive that shows potential CONGRUENCE (or opportunity for Repurposing) from the MOTIVE LIST.
-3. "congruence_ratings": A dictionary where keys are the motive names from the MOTIVE LIST and values are a score from 1 (Low Congruence) to {MOTIVE_SCALE_MAX} (High Congruence). (NOTE: Use a 1-{MOTIVE_SCALE_MAX} scale for this analysis score.)
+The JSON object MUST contain a single field:
+1. "congruence_ratings": A dictionary where keys are the motive names from the MOTIVE LIST and values are a score from 1 (Low Congruence) to {MOTIVE_SCALE_MAX} (High Congruence). This score represents how congruent the event is with each specific motive.
 
 MOTIVE LIST: {{motive_list}}
 User's Event Description: {{event_text}}
@@ -120,6 +118,7 @@ def run_appraisal_analysis(llm_instance, motive_scores, event_text):
 def get_prompts_for_condition(condition, motive_scores, event_text, analysis_data):
     """Generates the specific system instruction (template) for Guidance."""
     
+    # Analysis data now only contains 'congruence_ratings'
     congruence_ratings = analysis_data.get("congruence_ratings", {})
 
     # This formatted list contains BOTH user Importance (1-7) and LLM Congruence (1-7) scores
@@ -339,6 +338,7 @@ def show_experiment_page():
         with st.spinner("Analyzing Congruence and Generating Guidance..."):
             
             # 1. Appraisal Analysis
+            # The result is now only the {'congruence_ratings': {...}} object
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
             if analysis_data:
@@ -408,7 +408,7 @@ def show_experiment_page():
                     "condition": st.session_state.selected_condition,
                     "event_description": st.session_state.event_text,
                     "motive_importance_scores": st.session_state.motive_scores, # User's 1-7 ratings
-                    "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis
+                    "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis (now just congruence_ratings)
                     "llm_guidance": st.session_state.final_guidance,
                     "participant_ratings": st.session_state.collected_ratings, # User's 1-7 ratings for guidance
                 }
