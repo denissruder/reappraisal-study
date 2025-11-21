@@ -296,12 +296,17 @@ def show_experiment_page():
     # Event Input Area
     st.subheader(f"Condition Selected: {selected_condition}")
 
-    event_text = st.text_area(
+    # Text Area Definition: The actual value is stored in st.session_state["event_input"]
+    st.text_area(
         "Describe a recent, challenging, or stressful event in detail:",
         key="event_input",
         height=200,
         placeholder=f"Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital. (Minimum {MIN_EVENT_LENGTH} characters required)",
     )
+    
+    # *** FIX FOR PASTE ISSUE ***
+    # Read the current content directly from session state (which holds the latest input)
+    event_text = st.session_state.get("event_input", "") 
     
     # Display current length and required length
     current_length = len(event_text)
@@ -324,7 +329,7 @@ def show_experiment_page():
 
         # 2. Start Generation Process
         st.session_state.is_generating = True
-        st.session_state.event_text_for_llm = event_text
+        st.session_state.event_text_for_llm = event_text # Use the validated text
         st.rerun()
 
     # --- LLM EXECUTION PHASE ---
