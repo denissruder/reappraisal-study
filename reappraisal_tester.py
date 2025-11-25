@@ -435,7 +435,6 @@ def show_chat_page():
         return
 
     # --- Conversation History ---
-    st.markdown("#### Conversation History")
     # Fixed height for chat history container
     chat_container = st.container(height=450, border=True)
 
@@ -445,8 +444,7 @@ def show_chat_page():
             with st.chat_message(role):
                 st.markdown(message.content)
 
-    # --- Manual Skip Button Logic (Placed above the sticky chat input) ---
-    st.markdown("---")
+    # --- Manual Skip Button Logic ---
     skip_button_clicked = st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True)
     
     if skip_button_clicked:
@@ -653,46 +651,47 @@ def show_experiment_page():
         
         with st.form("all_ratings_form"):
             
-            # --- START 3-COLUMN LAYOUT ---
-            # Columns use the full available width of the current *centered* container.
-            cols = st.columns(len(GUIDANCE_LABELS)) 
+            # --- START VERTICAL LAYOUT (One after the other) ---
             
             # UI Loop for all three guidance responses
             for i, label in enumerate(GUIDANCE_LABELS):
-                with cols[i]: # Place content into the corresponding column
-                    guidance = st.session_state.all_guidance_data.get(label, {}).get('guidance', 'Guidance not available.')
+                # Using standard Streamlit flow (no columns)
+                guidance = st.session_state.all_guidance_data.get(label, {}).get('guidance', 'Guidance not available.')
+                
+                st.subheader(f"➡️ {label}")
+                
+                with st.container(border=True):
+                    st.markdown("#### 💬 Generated Guidance")
+                    # Using an alert style container for the guidance text
+                    st.success(guidance) 
                     
-                    st.subheader(f"{label}")
-                    
-                    with st.container(border=True):
-                        st.markdown("#### 💬 Generated Guidance")
-                        # Using an alert style container for the guidance text
-                        st.success(guidance) 
+                    # Inner loop for ratings
+                    for dim in RATING_DIMENSIONS:
+                        current_rating = st.session_state.all_collected_ratings[label].get(dim, 4)
                         
-                        # Inner loop for ratings
-                        for dim in RATING_DIMENSIONS:
-                            current_rating = st.session_state.all_collected_ratings[label].get(dim, 4)
-                            
-                            st.session_state.all_collected_ratings[label][dim] = st.slider(
-                                f"{dim} (1-{MOTIVE_SCALE_MAX})", 
-                                1, MOTIVE_SCALE_MAX, 
-                                current_rating, 
-                                key=f"rating_{label}_{dim}"
-                            )
-
-                        # --- INDIVIDUAL GUIDANCE COMMENTS FIELD (MANDATORY CHECK) ---
-                        st.session_state.guidance_comments_by_label[label] = st.text_area(
-                            f"Required Comments on {label}:", 
-                            value=st.session_state.guidance_comments_by_label.get(label, ""),
-                            key=f"comments_input_{label}", 
-                            height=100, 
-                            placeholder="Please provide feedback on this specific guidance message.",
+                        st.session_state.all_collected_ratings[label][dim] = st.slider(
+                            f"{dim} (1-{MOTIVE_SCALE_MAX})", 
+                            1, MOTIVE_SCALE_MAX, 
+                            current_rating, 
+                            key=f"rating_{label}_{dim}"
                         )
 
-            # --- END 3-COLUMN LAYOUT ---
+                    # --- INDIVIDUAL GUIDANCE COMMENTS FIELD (MANDATORY CHECK) ---
+                    st.session_state.guidance_comments_by_label[label] = st.text_area(
+                        f"Required Comments on {label}:", 
+                        value=st.session_state.guidance_comments_by_label.get(label, ""),
+                        key=f"comments_input_{label}", 
+                        height=100, 
+                        placeholder="Please provide feedback on this specific guidance message.",
+                    )
+
+                # Add a clear separator if it's not the last guidance panel
+                if i < len(GUIDANCE_LABELS) - 1:
+                    st.markdown("---")
+
+            # --- END VERTICAL LAYOUT ---
             
-            # The overall comments and submit button remain full width below the columns
-            st.markdown("---")
+            # The overall comments and submit button remain full width below the guidance panels
             st.markdown("### Overall Experience")
             st.session_state.overall_comments = st.text_area(
                 "Optional Overall Comments on the experience:", 
