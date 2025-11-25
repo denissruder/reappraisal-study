@@ -6,6 +6,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
 
+# --- Set Streamlit page configuration ---
+# Use wide layout and collapse the sidebar by default for a clean participant view
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
 # --- 1. CONFIGURATION & SETUP ---
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -47,7 +51,7 @@ def get_firestore_client():
     try:
         key_dict = json.loads(st.secrets["gcp_service_account"], strict=False)
         db = firestore.Client.from_service_account_info(key_dict)
-        st.sidebar.success("✅ Database Connected")
+        st.sidebar.success("✅ Database Connected") # Status remains in sidebar (collapsed)
         return db
     except Exception as e:
         st.sidebar.error(f"❌ Database Connection Failed: {e}")
@@ -68,7 +72,7 @@ def get_llm():
     
     try:
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=TEMP)
-        st.sidebar.success("✅ LLM Initialized")
+        st.sidebar.success("✅ LLM Initialized") # Status remains in sidebar (collapsed)
         return llm
     except Exception as e:
         st.sidebar.error(f"❌ LLM Initialization Failed: {e}")
@@ -381,8 +385,8 @@ def show_motives_page():
 
 def show_chat_page():
     """Renders the guided chat interview to collect event details and synthesize a narrative."""
-    st.title("🗣️ Event Interview")
-    st.markdown("Please tell me about a recent challenging or stressful event. I will ask you follow-up questions to ensure we have all the details needed for the analysis.")
+    st.header("🗣️ Event Interview: Tell Me Your Story")
+    st.markdown("This structured conversation ensures we gather all the necessary context about your event for the AI analysis.")
 
     # Initialize chat state
     if 'interview_messages' not in st.session_state:
@@ -396,17 +400,15 @@ def show_chat_page():
     # --- Handle completion and transition ---
     if st.session_state.event_text_synthesized:
         st.success("✅ Interview complete! Story compiled. Proceed to the next stage.")
-        
-        # Note: The manual skip logic below handles the transition directly.
-        # This block is for when the LLM signals completion.
         if st.button("Next: Review Event Description", type="primary", use_container_width=True):
             st.session_state.page = 'experiment'
             st.rerun()
         return
-        
-    # --- Display chat history ---
-    # Reduced height to minimize the gap between the history and the sticky input at the bottom.
-    chat_container = st.container(height=350, border=True)
+
+    # --- Conversation History ---
+    st.markdown("#### Conversation History")
+    # Fixed height for chat history container
+    chat_container = st.container(height=450, border=True)
 
     with chat_container:
         for message in messages:
@@ -414,12 +416,13 @@ def show_chat_page():
             with st.chat_message(role):
                 st.markdown(message.content)
 
-    # --- Manual Skip Button Logic (Appears *above* the sticky chat input) ---
+    # --- Manual Skip Button Logic (Placed above the sticky chat input) ---
+    st.markdown("---")
     skip_button_clicked = st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True)
     
     if skip_button_clicked:
         
-        # FIX: Check for answers and display error without calling st.rerun yet.
+        # Check for answers and display error without calling st.rerun yet.
         if not answers:
             st.error("Please provide at least a starting description of the event before skipping.")
         else:
@@ -439,7 +442,6 @@ def show_chat_page():
             st.rerun() 
 
     # --- User Input Loop (Standard sticky chat input) ---
-    # NOTE: st.chat_input will always be fixed to the bottom of the viewport.
     if user_input := st.chat_input("Your Response:"):
         
         # 1. Store user response
@@ -551,7 +553,7 @@ def show_experiment_page():
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
             if analysis_data:
-                # Store analysis data once at the top level of session state (Addressing the user's point)
+                # Store analysis data once at the top level of session state
                 st.session_state.appraisal_analysis = analysis_data 
                 
                 # 2. Guidance Generation for EACH condition
@@ -571,7 +573,6 @@ def show_experiment_page():
                         all_guidance_data[user_label] = {
                             "guidance": guidance,
                             "condition_id": condition, # Store internal condition name for data saving
-                            # analysis_data is now stored globally in st.session_state.appraisal_analysis
                         }
                         
                     except Exception as e:
@@ -623,38 +624,45 @@ def show_experiment_page():
         
         with st.form("all_ratings_form"):
             
+            # --- START 3-COLUMN LAYOUT ---
+            cols = st.columns(len(GUIDANCE_LABELS)) # Create 3 columns side-by-side
+            
             # UI Loop for all three guidance responses
-            for label in GUIDANCE_LABELS:
-                guidance = st.session_state.all_guidance_data.get(label, {}).get('guidance', 'Guidance not available.')
-                
-                st.subheader(f"{label}")
-                
-                with st.container(border=True):
-                    st.markdown("#### 💬 Generated Guidance")
-                    st.success(guidance)
+            for i, label in enumerate(GUIDANCE_LABELS):
+                with cols[i]: # Place content into the corresponding column
+                    guidance = st.session_state.all_guidance_data.get(label, {}).get('guidance', 'Guidance not available.')
                     
-                    # Inner loop for ratings
-                    for dim in RATING_DIMENSIONS:
-                        current_rating = st.session_state.all_collected_ratings[label].get(dim, 4)
+                    st.subheader(f"{label}")
+                    
+                    with st.container(border=True):
+                        st.markdown("#### 💬 Generated Guidance")
+                        # Using an alert style container for the guidance text
+                        st.success(guidance) 
                         
-                        st.session_state.all_collected_ratings[label][dim] = st.slider(
-                            f"{dim} (1-{MOTIVE_SCALE_MAX})", 
-                            1, MOTIVE_SCALE_MAX, 
-                            current_rating, 
-                            key=f"rating_{label}_{dim}"
+                        # Inner loop for ratings
+                        for dim in RATING_DIMENSIONS:
+                            current_rating = st.session_state.all_collected_ratings[label].get(dim, 4)
+                            
+                            st.session_state.all_collected_ratings[label][dim] = st.slider(
+                                f"{dim} (1-{MOTIVE_SCALE_MAX})", 
+                                1, MOTIVE_SCALE_MAX, 
+                                current_rating, 
+                                key=f"rating_{label}_{dim}"
+                            )
+
+                        # --- INDIVIDUAL GUIDANCE COMMENTS FIELD (MANDATORY CHECK) ---
+                        st.session_state.guidance_comments_by_label[label] = st.text_area(
+                            f"Required Comments on {label}:", 
+                            value=st.session_state.guidance_comments_by_label.get(label, ""),
+                            key=f"comments_input_{label}", 
+                            height=100, 
+                            placeholder="Please provide feedback on this specific guidance message.",
                         )
 
-                    # --- INDIVIDUAL GUIDANCE COMMENTS FIELD (MANDATORY CHECK) ---
-                    st.session_state.guidance_comments_by_label[label] = st.text_area(
-                        f"Required Comments on {label}:", 
-                        value=st.session_state.guidance_comments_by_label.get(label, ""),
-                        key=f"comments_input_{label}", 
-                        height=100, 
-                        placeholder="Please provide feedback on this specific guidance message.",
-                    )
-                st.markdown("---")
-
-            # --- SHARED OVERALL COMMENTS FIELD (Optional) ---
+            # --- END 3-COLUMN LAYOUT ---
+            
+            # The overall comments and submit button remain full width below the columns
+            st.markdown("---")
             st.markdown("### Overall Experience")
             st.session_state.overall_comments = st.text_area(
                 "Optional Overall Comments on the experience:", 
@@ -742,8 +750,10 @@ if 'page' not in st.session_state:
     st.session_state.page = 'consent'
 
 # Display current page
+# The following sidebar content will be in the collapsed sidebar
 st.sidebar.title("Protocol Status")
 st.sidebar.markdown(f"**Current Page:** `{st.session_state.page}`")
+
 
 if st.session_state.page == 'consent':
     show_consent_page()
@@ -755,7 +765,3 @@ elif st.session_state.page == 'experiment':
     show_experiment_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
-
-st.sidebar.markdown("---")
-st.sidebar.header("Debugging Data")
-st.sidebar.json(st.session_state.get('motive_scores', {'Status': 'Not Collected'}))
