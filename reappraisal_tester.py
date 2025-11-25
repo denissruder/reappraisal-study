@@ -393,9 +393,6 @@ def show_chat_page():
     messages = st.session_state.interview_messages
     answers = st.session_state.interview_answers
     
-    # Get the current question/prompt
-    current_prompt = messages[-1].content if messages and isinstance(messages[-1], AIMessage) else "..."
-
     # --- Handle completion and transition ---
     if st.session_state.event_text_synthesized:
         st.success("✅ Interview complete! Story compiled. Proceed to the next stage.")
@@ -404,36 +401,18 @@ def show_chat_page():
             st.rerun()
         return
 
-    # --- NEW: Layout with Columns for Structure ---
-    col1, col2 = st.columns([1, 2])
-    
-    # Col 1: Interviewer Status / Current Question
-    with col1:
-        st.markdown("#### Interview Status")
-        with st.container(border=True):
-            # Show progress
-            # +1 for the initial question that has not been formally answered yet
-            num_q_asked = len(answers) + 1 
-            st.metric(label="Questions Answered", value=len(answers))
-            
-            st.markdown("---")
-            st.markdown("**Current Focus:**")
-            # Show a snippet of the current question
-            st.markdown(f"*{current_prompt.split(':')[0].strip()}...*") 
+    # --- Conversation History ---
+    st.markdown("#### Conversation History")
+    # Fixed height for chat history container
+    chat_container = st.container(height=450, border=True)
 
-    # Col 2: Chat History
-    with col2:
-        st.markdown("#### Conversation History")
-        # Fixed height for chat history container
-        chat_container = st.container(height=400, border=True)
+    with chat_container:
+        for message in messages:
+            role = "user" if isinstance(message, HumanMessage) else "assistant"
+            with st.chat_message(role):
+                st.markdown(message.content)
 
-        with chat_container:
-            for message in messages:
-                role = "user" if isinstance(message, HumanMessage) else "assistant"
-                with st.chat_message(role):
-                    st.markdown(message.content)
-
-    # --- Manual Skip Button Logic (Placed below the columns) ---
+    # --- Manual Skip Button Logic (Placed above the sticky chat input) ---
     st.markdown("---")
     skip_button_clicked = st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True)
     
