@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 # --- Inject Custom CSS to HIDE the Streamlit Sidebar Elements ---
 # This CSS targets the navigation (the hamburger menu) and the sidebar wrapper,
-# ensuring a clean, fullscreen view for the participant.
+# ensuring a clean, fullscreen view for the participant by removing the sidebar controls.
 st.markdown(
     """
     <style>
@@ -22,7 +22,7 @@ st.markdown(
         display: none !important;
     }
     
-    /* Ensure the main content uses the full width */
+    /* Ensure the main content uses the available width for the centered layout */
     .main {
         padding-left: 1rem;
         padding-right: 1rem;
@@ -34,8 +34,8 @@ st.markdown(
 
 
 # --- Set Streamlit page configuration ---
-# Use wide layout. The CSS above handles the hiding of the controls.
-st.set_page_config(layout="wide")
+# Removing 'layout="wide"' to revert to the default, narrower, centered page layout.
+st.set_page_config()
 
 # --- 1. CONFIGURATION & SETUP ---
 
@@ -78,7 +78,7 @@ def get_firestore_client():
     try:
         key_dict = json.loads(st.secrets["gcp_service_account"], strict=False)
         db = firestore.Client.from_service_account_info(key_dict)
-        # Note: We must still keep the success message, even though the sidebar is hidden by CSS
+        # Status message kept for execution tracking, although hidden by CSS
         st.sidebar.success("✅ Database Connected") 
         return db
     except Exception as e:
@@ -100,7 +100,7 @@ def get_llm():
     
     try:
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=TEMP)
-        # Note: We must still keep the success message, even though the sidebar is hidden by CSS
+        # Status message kept for execution tracking, although hidden by CSS
         st.sidebar.success("✅ LLM Initialized") 
         return llm
     except Exception as e:
@@ -654,7 +654,8 @@ def show_experiment_page():
         with st.form("all_ratings_form"):
             
             # --- START 3-COLUMN LAYOUT ---
-            cols = st.columns(len(GUIDANCE_LABELS)) # Create 3 columns side-by-side
+            # Columns use the full available width of the current *centered* container.
+            cols = st.columns(len(GUIDANCE_LABELS)) 
             
             # UI Loop for all three guidance responses
             for i, label in enumerate(GUIDANCE_LABELS):
@@ -777,11 +778,6 @@ def show_thank_you_page():
 # Initialize page state
 if 'page' not in st.session_state:
     st.session_state.page = 'consent'
-
-# Display current page
-# We use st.empty() for the sidebar content because it's required for setup but hidden by CSS
-st.sidebar.title("Protocol Status")
-st.sidebar.markdown(f"**Current Page:** `{st.session_state.page}`")
 
 
 if st.session_state.page == 'consent':
