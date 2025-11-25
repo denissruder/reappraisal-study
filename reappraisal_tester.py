@@ -14,6 +14,7 @@ MOTIVES = ["Achievement & Success", "Security & Stability", "Affiliation & Belon
 RATING_DIMENSIONS = ["Believability", "Appropriateness", "Emotional Valence"]
 MOTIVE_SCALE_MAX = 7 # All ratings will be on a 1-7 scale
 MIN_EVENT_LENGTH = 200 # Minimum number of characters required for the event description
+CONDITION_OPTIONS = ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"] # All conditions to be run
 
 # --- Interview Questions (The mandatory content points) ---
 INTERVIEW_QUESTIONS = [
@@ -475,14 +476,14 @@ def show_chat_page():
 
 
 def show_experiment_page():
-    """Renders the Core Experiment Logic page."""
+    """Renders the Core Experiment Logic page, now generating and collecting ratings for all conditions simultaneously."""
     
     # --- REDIRECTION GUARD (Fixes flicker on submit) ---
     if st.session_state.get('is_redirecting', False):
         return
     # ----------------------------------------------------
     
-    st.title("🧪 Experiment: Event Elicitation & Guidance")
+    st.title("🧪 Experiment: Guidance Elicitation & Comparison")
     
     # Check if motive scores are available
     if 'motive_scores' not in st.session_state:
@@ -497,31 +498,17 @@ def show_experiment_page():
         return
     
     # Initialize necessary state variables
-    if 'is_generating' not in st.session_state:
-        st.session_state.is_generating = False
+    if 'is_generating_all' not in st.session_state:
+        st.session_state.is_generating_all = False
     if 'event_text_for_llm' not in st.session_state:
         st.session_state.event_text_for_llm = ""
         
     # --- New: Pre-populate event input with synthesized text ---
     if 'event_text_synthesized' in st.session_state and 'event_input' not in st.session_state:
-        # Only pre-populate if the user has completed the interview and hasn't started editing this field yet
         st.session_state.event_input = st.session_state.event_text_synthesized
 
-    # Experiment Condition Selection (Radio buttons on top)
-    condition_options = ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"]
-    default_index = condition_options.index("1. Neutral") 
-    
-    selected_condition = st.radio(
-        "Select Experimental Condition:",
-        condition_options,
-        index=default_index, 
-        horizontal=True
-    )
-    # Store selected condition immediately for the LLM execution phase
-    st.session_state.selected_condition = selected_condition 
-
     # Event Input Area
-    st.subheader(f"Condition Selected: {selected_condition}")
+    st.subheader("Event Description Review")
 
     # Text Area Definition: The actual value is stored in st.session_state["event_input"]
     st.text_area(
@@ -536,135 +523,159 @@ def show_experiment_page():
     current_length = len(event_text)
 
     # --- BUTTON LOGIC: Only disabled if generation is running ---
-    button_disabled = st.session_state.is_generating
+    button_disabled = st.session_state.is_generating_all or st.session_state.get('show_all_ratings', False)
     
-    if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled):
+    if st.button("Generate All Guidance Responses", type="primary", use_container_width=True, disabled=button_disabled):
         
         # 1. Input Validation Check (runs AFTER button is pressed)
         if current_length < MIN_EVENT_LENGTH:
             remaining_chars = MIN_EVENT_LENGTH - current_length
-            # Display a temporary error message that shows the required length
             st.error(
                 f"⚠️ Please ensure your event description is substantial. A minimum of {MIN_EVENT_LENGTH} characters is required for proper LLM analysis. You need **{remaining_chars}** more characters."
             )
-            
             # Reset state and return to prevent LLM call
             st.session_state.event_text_for_llm = ""
-            st.session_state.is_generating = False 
+            st.session_state.is_generating_all = False 
             return # Stop execution and wait for the user to fix the input
 
         # 2. Start Generation Process
-        st.session_state.is_generating = True
+        st.session_state.is_generating_all = True
         st.session_state.event_text_for_llm = event_text # Use the validated text
+        st.session_state.event_description_edited = event_text # Store the edited text once validated
         st.rerun()
 
     # --- LLM EXECUTION PHASE ---
-    if st.session_state.get('is_generating', False) and 'event_text_for_llm' in st.session_state:
+    if st.session_state.get('is_generating_all', False):
         
         event_text_to_process = st.session_state.event_text_for_llm
+        all_guidance_data = {}
         analysis_data = None
-        guidance = ""
+        generation_successful = False
 
         # Using a spinner while the LLM runs
-        with st.spinner("Analyzing Congruence and Generating Guidance..."):
+        with st.spinner("Analyzing Congruence and Generating Guidance for all 3 conditions..."):
             
-            # 1. Appraisal Analysis
+            # 1. Appraisal Analysis (Run ONCE)
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
             if analysis_data:
                 
-                # 2. Guidance Generation
-                prompt_template = get_prompts_for_condition(
-                    st.session_state.selected_condition, st.session_state.motive_scores, event_text_to_process, analysis_data
-                )
-                
-                chain = prompt_template | llm
-                try:
-                    response = chain.invoke({"event_text": event_text_to_process})
-                    guidance = response.content
+                # 2. Guidance Generation for EACH condition
+                for condition in CONDITION_OPTIONS:
                     
-                    # Success: Store data and prepare for display
-                    st.session_state.final_guidance = guidance
-                    st.session_state.analysis_data = analysis_data
-                    # UPDATED: Store the edited text with its explicit name
-                    st.session_state.event_description_edited = event_text_to_process
-                    st.session_state.show_ratings = True
+                    prompt_template = get_prompts_for_condition(
+                        condition, st.session_state.motive_scores, event_text_to_process, analysis_data
+                    )
                     
-                except Exception as e:
-                    st.error(f"An error occurred during LLM Guidance generation. Error: {e}")
-                    st.session_state.show_ratings = False
+                    chain = prompt_template | llm
+                    try:
+                        response = chain.invoke({"event_text": event_text_to_process})
+                        guidance = response.content
+                        
+                        all_guidance_data[condition] = {
+                            "guidance": guidance,
+                            "analysis_data": analysis_data # Store the analysis data with each guidance result
+                        }
+                        
+                    except Exception as e:
+                        st.error(f"An error occurred during LLM Guidance generation for '{condition}'. Error: {e}")
+                        # Skip this condition or stop entirely, depending on resilience needed.
+                        # For now, let's keep running but mark generation as failed.
+                        all_guidance_data[condition] = {"guidance": f"ERROR: Could not generate guidance for {condition}.", "analysis_data": analysis_data}
+
+                # Success/Completion: Store data and prepare for display
+                st.session_state.all_guidance_data = all_guidance_data
+                st.session_state.show_all_ratings = True
+            
             else:
-                st.session_state.show_ratings = False
+                st.session_state.show_all_ratings = False
+                st.error("Failed to run initial Appraisal Analysis. Cannot generate guidance.")
     
         # 3. Clean up and trigger final display rerun
-        st.session_state.is_generating = False
+        st.session_state.is_generating_all = False
         if 'event_text_for_llm' in st.session_state:
             del st.session_state.event_text_for_llm
         st.rerun()
 
     # --- Participant Rating Collection and Data Submission ---
-    if st.session_state.get('show_ratings', False) and 'final_guidance' in st.session_state:
+    if st.session_state.get('show_all_ratings', False):
         
         st.markdown("---")
         st.markdown("### Participant Rating & Submission")
-        st.write("Rate the generated guidance based on your experience:")
+        st.write("Rate each generated strategy based on your experience:")
         
-        # Using a container to wrap the guidance
-        with st.container(border=True):
-            st.markdown("#### 💬 Generated Guidance")
-            st.success(st.session_state.final_guidance)
-
-        # Initialize ratings in session state if not present
-        if "collected_ratings" not in st.session_state:
-            st.session_state.collected_ratings = {dim: 4 for dim in RATING_DIMENSIONS}
+        # Initialize all collected ratings structure
+        if "all_collected_ratings" not in st.session_state:
+            st.session_state.all_collected_ratings = {
+                condition: {dim: 4 for dim in RATING_DIMENSIONS} 
+                for condition in CONDITION_OPTIONS
+            }
         
         # Initialize comment state if not present
         if "guidance_comments" not in st.session_state:
              st.session_state.guidance_comments = ""
+
         
-        with st.form("rating_form"):
+        with st.form("all_ratings_form"):
             
-            # Rating Sliders - Uses MOTIVE_SCALE_MAX (7)
-            for dim in RATING_DIMENSIONS:
-                # Use value from session state if it exists, otherwise default to 4
-                default_value = st.session_state.collected_ratings.get(dim, 4)
-                st.session_state.collected_ratings[dim] = st.slider(
-                    f"{dim} (1-{MOTIVE_SCALE_MAX})", 
-                    1, MOTIVE_SCALE_MAX, default_value, 
-                    key=dim
-                )
-            
-            # --- COMMENTS FIELD ---
+            # UI Loop for all three conditions
+            for condition in CONDITION_OPTIONS:
+                guidance = st.session_state.all_guidance_data.get(condition, {}).get('guidance', 'Guidance not available.')
+                
+                st.subheader(f"Strategy: {condition}")
+                
+                with st.container(border=True):
+                    st.markdown("#### 💬 Generated Guidance")
+                    st.success(guidance)
+                    
+                    # Inner loop for ratings
+                    for dim in RATING_DIMENSIONS:
+                        # Ensure we get the current rating value
+                        current_rating = st.session_state.all_collected_ratings[condition].get(dim, 4)
+                        
+                        st.session_state.all_collected_ratings[condition][dim] = st.slider(
+                            f"{dim} (1-{MOTIVE_SCALE_MAX})", 
+                            1, MOTIVE_SCALE_MAX, 
+                            current_rating, # Use current value
+                            key=f"rating_{condition}_{dim}" # Unique key for each slider
+                        )
+
+            st.markdown("---")
+            # --- SHARED COMMENTS FIELD ---
             st.session_state.guidance_comments = st.text_area(
-                "Optional Comments on Guidance:", 
+                "Optional Comments on the experience/strategies:", 
                 key="comments_input", 
                 height=100, 
-                placeholder="Enter any feedback, thoughts, or suggestions about the guidance here."
+                placeholder="Enter any feedback, thoughts, or suggestions about the overall experience or specific strategies here."
             )
             
             # Submission button
-            if st.form_submit_button("Submit Ratings and Save Trial Data"):
+            if st.form_submit_button("Submit All Ratings and Save Trial Data", type="primary"):
                 
-                # UPDATED: Prepare data for Firestore with new field names
+                # Consolidate results for saving
+                results_by_condition = {}
+                for condition in CONDITION_OPTIONS:
+                    results_by_condition[condition] = {
+                        "llm_guidance": st.session_state.all_guidance_data[condition]['guidance'],
+                        "participant_ratings": st.session_state.all_collected_ratings[condition],
+                        # Note: Appraisal data is the same for all, we store it once in the final structure for convenience
+                        "appraisal_analysis": st.session_state.all_guidance_data[condition]['analysis_data'], 
+                    }
+
+                # Prepare final data for Firestore
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
-                    "condition": st.session_state.selected_condition,
-                    # New field for the LLM's synthesized story from chat:
-                    "synthesized_event_narrative": st.session_state.event_text_synthesized,
-                    # Renamed field for the text area content (potentially edited by participant):
-                    "event_description_edited": st.session_state.event_description_edited,
-                    # Renamed field for the full Q&A history:
-                    "interview_qa_history": st.session_state.interview_answers, 
                     "motive_importance_scores": st.session_state.motive_scores, 
-                    "appraisal_analysis": st.session_state.analysis_data, 
-                    "llm_guidance": st.session_state.final_guidance,
-                    "participant_ratings": st.session_state.collected_ratings, 
+                    "synthesized_event_narrative": st.session_state.event_text_synthesized,
+                    "event_description_edited": st.session_state.event_description_edited,
+                    "interview_qa_history": st.session_state.interview_answers, 
                     "participant_comments": st.session_state.guidance_comments, 
+                    "results_by_condition": results_by_condition, 
                 }
                 
                 if save_data(trial_data):
                     # Hide ratings, set redirect flag, and trigger page change
-                    st.session_state.show_ratings = False
+                    st.session_state.show_all_ratings = False
                     st.session_state.is_redirecting = True 
                     st.session_state.page = 'thank_you' 
                     st.rerun()
@@ -683,7 +694,7 @@ def show_thank_you_page():
 
     if st.button("Run Another Trial", type="primary"):
         # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_description_edited', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating', 'guidance_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: 
+        for key in ['all_guidance_data', 'all_collected_ratings', 'show_all_ratings', 'event_description_edited', 'event_input', 'is_redirecting', 'is_generating_all', 'guidance_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: 
             if key in st.session_state:
                 del st.session_state[key]
         
