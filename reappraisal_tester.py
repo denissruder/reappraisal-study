@@ -159,11 +159,41 @@ JSON Schema:
 
 Provide the JSON output:
 """
+# Helper template for manual skip button: synthesize current answers into one narrative.
+SYNTHESIS_PROMPT_TEMPLATE = """
+The user has ended the interview early. Based on the Q&A history provided below, synthesize all the information into a single, cohesive, narrative summary of the stressful event.
 
-def process_interview_step(llm_instance, interview_history):
-    """Executes the LLM to manage the conversation flow and synthesize the narrative."""
+Q&A History:
+{qa_pairs}
+
+Provide the complete, unified narrative summary:
+"""
+
+
+def process_interview_step(llm_instance, interview_history, is_skip=False):
+    """Executes the LLM to manage the conversation flow or synthesize the narrative."""
     
     qa_pairs_formatted = "\n---\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in interview_history])
+    
+    if is_skip:
+        # If user clicked skip, force synthesis immediately
+        prompt = PromptTemplate(input_variables=["qa_pairs"], template=SYNTHESIS_PROMPT_TEMPLATE)
+        chain = prompt | llm_instance
+        try:
+            response = chain.invoke({"qa_pairs": qa_pairs_formatted})
+            # For manual skip, we generate the narrative directly and wrap it.
+            return {
+                "status": "complete",
+                "conversational_response": "Understood. Thank you for sharing your story so far. I've compiled everything into a single narrative for the next step.",
+                "next_question": None,
+                "final_narrative": response.content.strip()
+            }
+        except Exception as e:
+            st.error(f"Error during manual Synthesis: {e}")
+            return {"status": "error", "conversational_response": "I ran into an issue while compiling your story. Please try submitting the narrative in the next step manually.", "next_question": None, "final_narrative": "ERROR: Could not synthesize story."}
+
+
+    # Standard dynamic interview flow
     all_questions_formatted = "\n".join([f"- {q}" for q in INTERVIEW_QUESTIONS])
     
     prompt = PromptTemplate(
@@ -184,7 +214,7 @@ def process_interview_step(llm_instance, interview_history):
         if json_string.startswith("```json"):
             json_string = json_string.lstrip("```json").rstrip("```")
         elif json_string.startswith("```"):
-            json_string = json.lstrip("```").rstrip("```")
+            json_string = json_string.lstrip("```").rstrip("```")
 
         result = json.loads(json_string, strict=False)
         return result
@@ -374,6 +404,24 @@ def show_chat_page():
             st.rerun()
         return
         
+    # --- Manual Skip Button Logic ---
+    if st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True):
+        if not answers:
+            st.error("Please provide at least a starting description of the event before skipping.")
+            return
+
+        with st.spinner("Compiling your story..."):
+            # Manually trigger the synthesis logic
+            interview_result = process_interview_step(llm, answers, is_skip=True)
+            
+            if interview_result['status'] == 'complete':
+                st.session_state.event_text_synthesized = interview_result['final_narrative']
+                messages.append(AIMessage(content=interview_result['conversational_response']))
+            elif interview_result['status'] == 'error':
+                 messages.append(AIMessage(content=interview_result['conversational_response']))
+        
+        st.rerun() # Rerun to show completion message and button
+
     # --- User Input Loop ---
     
     if user_input := st.chat_input("Your Response:"):
@@ -382,7 +430,6 @@ def show_chat_page():
         messages.append(HumanMessage(content=user_input))
         
         # Determine the question the user just answered (last AI message)
-        # We need to find the last AIMessage content before the current HumanMessage
         question_just_answered = "Initial Prompt" # Fallback
         for msg in reversed(messages[:-1]):
             if isinstance(msg, AIMessage):
@@ -395,7 +442,7 @@ def show_chat_page():
         # 2. Get LLM to process and determine next step
         with st.spinner(): # Removed verbose text
             
-            interview_result = process_interview_step(llm, answers)
+            interview_result = process_interview_step(llm, answers, is_skip=False)
             
             if interview_result['status'] == 'continue':
                 # Add conversational response and next question
