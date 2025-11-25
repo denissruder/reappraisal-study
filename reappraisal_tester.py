@@ -391,8 +391,8 @@ def show_chat_page():
     if st.session_state.event_text_synthesized:
         st.success("✅ Interview complete! Story compiled. Proceed to the next stage.")
         
-        # NOTE: The transition logic for LLM completion is handled here.
-        # For a manual skip, the transition happens directly inside the skip logic below.
+        # Note: The manual skip logic below handles the transition directly.
+        # This block is for when the LLM signals completion.
         if st.button("Next: Review Event Description", type="primary", use_container_width=True):
             st.session_state.page = 'experiment'
             st.rerun()
@@ -410,23 +410,27 @@ def show_chat_page():
 
     # --- Manual Skip Button Logic (Appears *above* the sticky chat input) ---
     if st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True):
+        
+        # FIX: Check for answers and display error without using 'return' 
+        # so the chat input rendering continues below.
         if not answers:
             st.error("Please provide at least a starting description of the event before skipping.")
-            return
-
-        with st.spinner("Compiling your story..."):
-            # Manually trigger the synthesis logic
-            interview_result = process_interview_step(llm, answers, is_skip=True)
+        else:
+            with st.spinner("Compiling your story..."):
+                # Manually trigger the synthesis logic
+                interview_result = process_interview_step(llm, answers, is_skip=True)
+                
+                if interview_result['status'] == 'complete':
+                    st.session_state.event_text_synthesized = interview_result['final_narrative']
+                    messages.append(AIMessage(content=interview_result['conversational_response']))
+                    # Direct transition to the experiment page after successful skip.
+                    st.session_state.page = 'experiment' 
+                elif interview_result['status'] == 'error':
+                     messages.append(AIMessage(content=interview_result['conversational_response']))
             
-            if interview_result['status'] == 'complete':
-                st.session_state.event_text_synthesized = interview_result['final_narrative']
-                messages.append(AIMessage(content=interview_result['conversational_response']))
-                # NEW: Direct transition to the experiment page after successful skip.
-                st.session_state.page = 'experiment' 
-            elif interview_result['status'] == 'error':
-                 messages.append(AIMessage(content=interview_result['conversational_response']))
-        
-        st.rerun() # Rerun to transition or show error/completion message
+            # Rerun is placed here to only trigger on successful skip or error synthesis, 
+            # allowing the error message in the 'if not answers' block to persist for one cycle.
+            st.rerun() 
 
     # --- User Input Loop (Standard sticky chat input) ---
     # NOTE: st.chat_input will always be fixed to the bottom of the viewport.
@@ -578,7 +582,8 @@ def show_experiment_page():
                     # Success: Store data and prepare for display
                     st.session_state.final_guidance = guidance
                     st.session_state.analysis_data = analysis_data
-                    st.session_state.event_text = event_text_to_process
+                    # UPDATED: Store the edited text with its explicit name
+                    st.session_state.event_description_edited = event_text_to_process
                     st.session_state.show_ratings = True
                     
                 except Exception as e:
@@ -636,12 +641,16 @@ def show_experiment_page():
             # Submission button
             if st.form_submit_button("Submit Ratings and Save Trial Data"):
                 
-                # Prepare data for Firestore
+                # UPDATED: Prepare data for Firestore with new field names
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
                     "condition": st.session_state.selected_condition,
-                    "event_description": st.session_state.event_text,
-                    "interview_answers": st.session_state.interview_answers, 
+                    # New field for the LLM's synthesized story from chat:
+                    "synthesized_event_narrative": st.session_state.event_text_synthesized,
+                    # Renamed field for the text area content (potentially edited by participant):
+                    "event_description_edited": st.session_state.event_description_edited,
+                    # Renamed field for the full Q&A history:
+                    "interview_qa_history": st.session_state.interview_answers, 
                     "motive_importance_scores": st.session_state.motive_scores, 
                     "appraisal_analysis": st.session_state.analysis_data, 
                     "llm_guidance": st.session_state.final_guidance,
@@ -670,7 +679,7 @@ def show_thank_you_page():
 
     if st.button("Run Another Trial", type="primary"):
         # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating', 'guidance_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: 
+        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_description_edited', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating', 'guidance_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: 
             if key in st.session_state:
                 del st.session_state[key]
         
