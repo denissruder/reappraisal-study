@@ -6,9 +6,36 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
 
+# --- Inject Custom CSS to HIDE the Streamlit Sidebar Elements ---
+# This CSS targets the navigation (the hamburger menu) and the sidebar wrapper,
+# ensuring a clean, fullscreen view for the participant.
+st.markdown(
+    """
+    <style>
+    /* Hide the sidebar button (hamburger menu) */
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    
+    /* Hide the top-right button to re-open the sidebar */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+    
+    /* Ensure the main content uses the full width */
+    .main {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
 # --- Set Streamlit page configuration ---
-# Use wide layout and collapse the sidebar by default for a clean participant view
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+# Use wide layout. The CSS above handles the hiding of the controls.
+st.set_page_config(layout="wide")
 
 # --- 1. CONFIGURATION & SETUP ---
 
@@ -51,7 +78,8 @@ def get_firestore_client():
     try:
         key_dict = json.loads(st.secrets["gcp_service_account"], strict=False)
         db = firestore.Client.from_service_account_info(key_dict)
-        st.sidebar.success("✅ Database Connected") # Status remains in sidebar (collapsed)
+        # Note: We must still keep the success message, even though the sidebar is hidden by CSS
+        st.sidebar.success("✅ Database Connected") 
         return db
     except Exception as e:
         st.sidebar.error(f"❌ Database Connection Failed: {e}")
@@ -72,7 +100,8 @@ def get_llm():
     
     try:
         llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=TEMP)
-        st.sidebar.success("✅ LLM Initialized") # Status remains in sidebar (collapsed)
+        # Note: We must still keep the success message, even though the sidebar is hidden by CSS
+        st.sidebar.success("✅ LLM Initialized") 
         return llm
     except Exception as e:
         st.sidebar.error(f"❌ LLM Initialization Failed: {e}")
@@ -750,7 +779,7 @@ if 'page' not in st.session_state:
     st.session_state.page = 'consent'
 
 # Display current page
-# The following sidebar content will be in the collapsed sidebar
+# We use st.empty() for the sidebar content because it's required for setup but hidden by CSS
 st.sidebar.title("Protocol Status")
 st.sidebar.markdown(f"**Current Page:** `{st.session_state.page}`")
 
