@@ -154,7 +154,7 @@ JSON Schema:
   "status": "continue" | "complete",
   "conversational_response": "<A natural, contextual reaction acknowledging the user's last input.>",
   "next_question": "<The full text of the next question to ask, or null if status is 'complete'.>",
-  "final_narrative": "<The cohesive, unified story based on ALL answers. Only required if status is 'complete'.>"
+  "final_narrative": "<The cohesive, unified story based on ALL answers. This MUST be written from a first-person perspective (using 'I' and 'my'). Only required if status is 'complete'.>"
 }}
 
 Provide the JSON output:
@@ -162,6 +162,8 @@ Provide the JSON output:
 # Helper template for manual skip button: synthesize current answers into one narrative.
 SYNTHESIS_PROMPT_TEMPLATE = """
 The user has ended the interview early. Based on the Q&A history provided below, synthesize all the information into a single, cohesive, narrative summary of the stressful event.
+
+**CRITICAL:** Write the summary from a first-person perspective (using 'I' and 'my').
 
 Q&A History:
 {qa_pairs}
@@ -212,11 +214,13 @@ def process_interview_step(llm_instance, interview_history, is_skip=False):
         json_string = response.content.strip()
 
         if json_string.startswith("```json"):
-            json_string = json_string.lstrip("```json").rstrip("```")
+            json_string = json.loads(json_string.lstrip("```json").rstrip("```"), strict=False)
         elif json_string.startswith("```"):
-            json_string = json_string.lstrip("```").rstrip("```")
+            json_string = json.loads(json_string.lstrip("```").rstrip("```"), strict=False)
+        else:
+            json_string = json.loads(json_string, strict=False) # Attempt simple load
 
-        result = json.loads(json_string, strict=False)
+        result = json_string
         return result
     except Exception as e:
         # Fallback error handling
@@ -409,10 +413,11 @@ def show_chat_page():
                 st.markdown(message.content)
 
     # --- Manual Skip Button Logic (Appears *above* the sticky chat input) ---
-    if st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True):
+    skip_button_clicked = st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True)
+    
+    if skip_button_clicked:
         
-        # FIX: Check for answers and display error without using 'return' 
-        # so the chat input rendering continues below.
+        # FIX: Check for answers and display error without calling st.rerun yet.
         if not answers:
             st.error("Please provide at least a starting description of the event before skipping.")
         else:
@@ -428,8 +433,7 @@ def show_chat_page():
                 elif interview_result['status'] == 'error':
                      messages.append(AIMessage(content=interview_result['conversational_response']))
             
-            # Rerun is placed here to only trigger on successful skip or error synthesis, 
-            # allowing the error message in the 'if not answers' block to persist for one cycle.
+            # Rerun is placed here to trigger the state update only after processing the skip.
             st.rerun() 
 
     # --- User Input Loop (Standard sticky chat input) ---
