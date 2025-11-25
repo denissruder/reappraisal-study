@@ -404,27 +404,19 @@ def show_chat_page():
             st.rerun()
         return
         
-    # --- Manual Skip Button Logic ---
-    if st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True):
-        if not answers:
-            st.error("Please provide at least a starting description of the event before skipping.")
-            return
+    # --- User Input Form (The "Response Window" - Replaces st.chat_input) ---
+    # This structure allows the skip button to be placed below the form.
+    with st.form("chat_form", clear_on_submit=True):
+        user_input = st.text_area(
+            "Your Response:", 
+            key="chat_input_area", 
+            height=100, 
+            placeholder="Type your response here..."
+        )
+        submitted = st.form_submit_button("Send Response", type="primary", use_container_width=True)
 
-        with st.spinner("Compiling your story..."):
-            # Manually trigger the synthesis logic
-            interview_result = process_interview_step(llm, answers, is_skip=True)
-            
-            if interview_result['status'] == 'complete':
-                st.session_state.event_text_synthesized = interview_result['final_narrative']
-                messages.append(AIMessage(content=interview_result['conversational_response']))
-            elif interview_result['status'] == 'error':
-                 messages.append(AIMessage(content=interview_result['conversational_response']))
-        
-        st.rerun() # Rerun to show completion message and button
-
-    # --- User Input Loop ---
-    
-    if user_input := st.chat_input("Your Response:"):
+    # --- Submission Logic ---
+    if submitted and user_input:
         
         # 1. Store user response
         messages.append(HumanMessage(content=user_input))
@@ -436,12 +428,11 @@ def show_chat_page():
                 question_just_answered = msg.content
                 break
         
-        # Store the Q&A pair (only storing the user's input/response for the history)
+        # Store the Q&A pair
         answers.append({"question": question_just_answered, "answer": user_input})
         
         # 2. Get LLM to process and determine next step
-        with st.spinner(): # Removed verbose text
-            
+        with st.spinner():
             interview_result = process_interview_step(llm, answers, is_skip=False)
             
             if interview_result['status'] == 'continue':
@@ -458,6 +449,24 @@ def show_chat_page():
                  # If an error, we rely on the error message to guide the user.
 
         st.rerun() # Rerun to show updated state and messages
+
+    # --- Manual Skip Button Logic (Placed *after* the Response Window/Form) ---
+    if st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True):
+        if not answers:
+            st.error("Please provide at least a starting description of the event before skipping.")
+            return
+
+        with st.spinner("Compiling your story..."):
+            # Manually trigger the synthesis logic
+            interview_result = process_interview_step(llm, answers, is_skip=True)
+            
+            if interview_result['status'] == 'complete':
+                st.session_state.event_text_synthesized = interview_result['final_narrative']
+                messages.append(AIMessage(content=interview_result['conversational_response']))
+            elif interview_result['status'] == 'error':
+                 messages.append(AIMessage(content=interview_result['conversational_response']))
+        
+        st.rerun() # Rerun to show completion message and button
 
 
 def show_experiment_page():
