@@ -551,6 +551,8 @@ def show_experiment_page():
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
             if analysis_data:
+                # Store analysis data once at the top level of session state (Addressing the user's point)
+                st.session_state.appraisal_analysis = analysis_data 
                 
                 # 2. Guidance Generation for EACH condition
                 # Use enumerate to pair user-facing label with internal condition name
@@ -569,7 +571,7 @@ def show_experiment_page():
                         all_guidance_data[user_label] = {
                             "guidance": guidance,
                             "condition_id": condition, # Store internal condition name for data saving
-                            "analysis_data": analysis_data 
+                            # analysis_data is now stored globally in st.session_state.appraisal_analysis
                         }
                         
                     except Exception as e:
@@ -577,7 +579,6 @@ def show_experiment_page():
                         all_guidance_data[user_label] = {
                             "guidance": f"ERROR: Could not generate guidance for {condition}.", 
                             "condition_id": condition, 
-                            "analysis_data": analysis_data
                         }
 
                 # Success/Completion: Store data and prepare for display
@@ -586,6 +587,9 @@ def show_experiment_page():
             
             else:
                 st.session_state.show_all_ratings = False
+                # If analysis failed, clear the temporary analysis state
+                if 'appraisal_analysis' in st.session_state:
+                    del st.session_state.appraisal_analysis
                 st.error("Failed to run initial Appraisal Analysis. Cannot generate guidance.")
     
         # 3. Clean up and trigger final display rerun
@@ -696,8 +700,8 @@ def show_experiment_page():
                     "event_description_edited": st.session_state.event_description_edited,
                     "interview_qa_history": st.session_state.interview_answers, 
                     "overall_participant_comments": st.session_state.overall_comments, 
-                    # Store the single set of appraisal analysis data (it's the same for all)
-                    "appraisal_analysis": st.session_state.all_guidance_data[GUIDANCE_LABELS[0]]['analysis_data'],
+                    # Store the single set of appraisal analysis data from the root state
+                    "appraisal_analysis": st.session_state.appraisal_analysis,
                     "results_by_condition": results_by_condition, 
                 }
                 
@@ -722,7 +726,7 @@ def show_thank_you_page():
 
     if st.button("Run Another Trial", type="primary"):
         # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
-        for key in ['all_guidance_data', 'all_collected_ratings', 'show_all_ratings', 'event_description_edited', 'event_input', 'is_redirecting', 'is_generating_all', 'guidance_comments_by_label', 'overall_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: 
+        for key in ['all_guidance_data', 'all_collected_ratings', 'show_all_ratings', 'event_description_edited', 'event_input', 'is_redirecting', 'is_generating_all', 'guidance_comments_by_label', 'overall_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized', 'appraisal_analysis']: 
             if key in st.session_state:
                 del st.session_state[key]
         
