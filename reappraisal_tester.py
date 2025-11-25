@@ -381,8 +381,8 @@ def show_motives_page():
 
 def show_chat_page():
     """Renders the guided chat interview to collect event details and synthesize a narrative."""
-    st.header("🗣️ Event Interview: Tell Me Your Story")
-    st.markdown("This structured conversation ensures we gather all the necessary context about your event for the AI analysis.")
+    st.title("🗣️ Event Interview")
+    st.markdown("Please tell me about a recent challenging or stressful event. I will ask you follow-up questions to ensure we have all the details needed for the analysis.")
 
     # Initialize chat state
     if 'interview_messages' not in st.session_state:
@@ -396,15 +396,17 @@ def show_chat_page():
     # --- Handle completion and transition ---
     if st.session_state.event_text_synthesized:
         st.success("✅ Interview complete! Story compiled. Proceed to the next stage.")
+        
+        # Note: The manual skip logic below handles the transition directly.
+        # This block is for when the LLM signals completion.
         if st.button("Next: Review Event Description", type="primary", use_container_width=True):
             st.session_state.page = 'experiment'
             st.rerun()
         return
-
-    # --- Conversation History ---
-    st.markdown("#### Conversation History")
-    # Fixed height for chat history container
-    chat_container = st.container(height=450, border=True)
+        
+    # --- Display chat history ---
+    # Reduced height to minimize the gap between the history and the sticky input at the bottom.
+    chat_container = st.container(height=350, border=True)
 
     with chat_container:
         for message in messages:
@@ -412,13 +414,12 @@ def show_chat_page():
             with st.chat_message(role):
                 st.markdown(message.content)
 
-    # --- Manual Skip Button Logic (Placed above the sticky chat input) ---
-    st.markdown("---")
+    # --- Manual Skip Button Logic (Appears *above* the sticky chat input) ---
     skip_button_clicked = st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True)
     
     if skip_button_clicked:
         
-        # Check for answers and display error without calling st.rerun yet.
+        # FIX: Check for answers and display error without calling st.rerun yet.
         if not answers:
             st.error("Please provide at least a starting description of the event before skipping.")
         else:
@@ -438,6 +439,7 @@ def show_chat_page():
             st.rerun() 
 
     # --- User Input Loop (Standard sticky chat input) ---
+    # NOTE: st.chat_input will always be fixed to the bottom of the viewport.
     if user_input := st.chat_input("Your Response:"):
         
         # 1. Store user response
@@ -549,7 +551,7 @@ def show_experiment_page():
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
             if analysis_data:
-                # Store analysis data once at the top level of session state
+                # Store analysis data once at the top level of session state (Addressing the user's point)
                 st.session_state.appraisal_analysis = analysis_data 
                 
                 # 2. Guidance Generation for EACH condition
@@ -569,6 +571,7 @@ def show_experiment_page():
                         all_guidance_data[user_label] = {
                             "guidance": guidance,
                             "condition_id": condition, # Store internal condition name for data saving
+                            # analysis_data is now stored globally in st.session_state.appraisal_analysis
                         }
                         
                     except Exception as e:
