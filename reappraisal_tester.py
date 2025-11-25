@@ -77,7 +77,7 @@ llm = get_llm()
 
 # --- 2. LLM LOGIC FUNCTIONS ---
 
-# --- LLM APPRAISAL ANALYSIS ---
+# --- LLM APPRAISAL ANALYSIS (No change) ---
 APPRAISAL_ANALYSIS_TEMPLATE = f"""
 You are an Appraisal Analyst. Your task is to analyze the user's event description in the context of their core motives.
 Your output MUST be a valid JSON object. Do not include any text, headers, or markdown formatting outside of the JSON block.
@@ -129,11 +129,11 @@ def run_appraisal_analysis(llm_instance, motive_scores, event_text):
         st.error(f"Error during LLM Appraisal Analysis. Could not parse JSON. Error: {e}. Raw LLM output: {raw_output_snippet}...")
         return None
 
-# --- New: Dynamic Interview Logic and Synthesis ---
+# --- Updated: Dynamic Interview Logic and Synthesis ---
 INTERVIEW_PROMPT_TEMPLATE = """
-You are a Dynamic Interviewer for a psychological study. Your goal is to collect all 10 key pieces of information (CORE QUESTIONS) about a stressful event from the user's responses.
+You are a Dynamic Interviewer for a psychological study. Your goal is to collect all 10 key pieces of information (CORE QUESTIONS) about a stressful event from the user's responses, but only ask questions that are relevant or missing.
 
-Your responses must be conversational and contextual. Do not strictly repeat "Moving on to question X."
+Your responses must be conversational and contextual.
 
 The user's response history so far is:
 {qa_pairs}
@@ -142,9 +142,10 @@ The set of ALL 10 CORE QUESTIONS is:
 {all_questions}
 
 Your task is:
-1. Analyze the Q&A history to determine which CORE QUESTIONS have been sufficiently covered by the user's answers, or if the conversation is complete.
-2. If all CORE QUESTIONS are answered, set 'status' to "complete".
-3. If questions remain, set 'status' to "continue". Select the single most relevant *unanswered* question from the list to ask next.
+1. Analyze the Q&A history to determine which CORE QUESTIONS have been sufficiently covered by the user's answers.
+2. **CRITICAL RULE:** **Not all 10 CORE QUESTIONS must be explicitly covered.** Use your best judgment to transition to synthesis when the event description feels rich and complete, or if a remaining question is implicitly answered or clearly non-applicable to the specific event.
+3. If the event description is rich and complete (all necessary points covered), set 'status' to "complete".
+4. If the description is incomplete, set 'status' to "continue". Select the single most relevant and important *unanswered* question from the list to ask next.
 
 Your output MUST be a valid JSON object.
 
@@ -183,16 +184,18 @@ def process_interview_step(llm_instance, interview_history):
         if json_string.startswith("```json"):
             json_string = json_string.lstrip("```json").rstrip("```")
         elif json_string.startswith("```"):
-            json_string = json_string.lstrip("```").rstrip("```")
+            json_string = json.lstrip("```").rstrip("```")
 
         result = json.loads(json_string, strict=False)
         return result
     except Exception as e:
-        st.error(f"Error during LLM Interview Processing. Error: {e}. Raw LLM output snippet: {response.content[:100]}...")
-        return {"status": "error", "conversational_response": "I apologize, I ran into an error processing your response. Could you please try answering again?", "next_question": INTERVIEW_QUESTIONS[0], "final_narrative": None}
+        # Fallback error handling
+        st.error(f"Error during LLM Interview Processing. Error: {e}")
+        # Return a safe, basic structure to continue the flow
+        return {"status": "error", "conversational_response": "I ran into an issue while processing that. Can you please tell me more about what happened?", "next_question": INTERVIEW_QUESTIONS[0], "final_narrative": None}
 
 
-# --- PROMPT TEMPLATE GENERATION (Remains the same) ---
+# --- PROMPT TEMPLATE GENERATION (No change) ---
 def get_prompts_for_condition(condition, motive_scores, event_text, analysis_data):
     """Generates the specific system instruction (template) for Guidance."""
     
@@ -205,7 +208,6 @@ def get_prompts_for_condition(condition, motive_scores, event_text, analysis_dat
         for motive, score in motive_scores.items()
     ])
     
-    # ... (Templates for conditions 1, 2, 3 remain here) ...
     # --- 1. Neutral Condition ---
     if condition == "1. Neutral":
         template = """
@@ -279,7 +281,7 @@ Guidance:
     # If no condition matched, return None, causing the TypeError downstream
     return None
 
-# --- 3. DATA SAVING LOGIC ---
+# --- 3. DATA SAVING LOGIC (No change) ---
 def save_data(data):
     """Saves the comprehensive trial data as a new document in Firestore."""
     try:
@@ -332,7 +334,7 @@ def show_motives_page():
                 key=f"motive_radio_{motive}"
             )
         
-        if st.form_submit_button("Next: Start Interview"): # Updated button text
+        if st.form_submit_button("Next: Start Interview"): 
             # Ensure all values are collected before proceeding
             if all(motive_scores.values()):
                 st.session_state.motive_scores = motive_scores
@@ -348,7 +350,7 @@ def show_chat_page():
 
     # Initialize chat state
     if 'interview_messages' not in st.session_state:
-        st.session_state.interview_messages = [AIMessage(content="Hello! Let's start with the first question: " + INTERVIEW_QUESTIONS[0])]
+        st.session_state.interview_messages = [AIMessage(content="Hello! Let's start by hearing your story: " + INTERVIEW_QUESTIONS[0])]
         st.session_state.interview_answers = []
         st.session_state.event_text_synthesized = None
 
@@ -366,30 +368,32 @@ def show_chat_page():
 
     # --- Handle completion and transition ---
     if st.session_state.event_text_synthesized:
-        st.success("✅ Interview complete! Click Next to review the synthesized event description.")
+        st.success("✅ Interview complete!")
         if st.button("Next: Review Event Description", type="primary", use_container_width=True):
             st.session_state.page = 'experiment'
             st.rerun()
         return
         
     # --- User Input Loop ---
-    # The input prompt dynamically shows the current question being asked by the AI
-    current_q_display = messages[-1].content if messages else INTERVIEW_QUESTIONS[0]
     
     if user_input := st.chat_input("Your Response:"):
         
         # 1. Store user response
         messages.append(HumanMessage(content=user_input))
         
-        # The question to which the user is responding is the LAST question the AI asked
-        # Since the first message is the first question, we use the message before the user's last response
-        question_just_answered = messages[-2].content if len(messages) >= 2 else INTERVIEW_QUESTIONS[0]
+        # Determine the question the user just answered (last AI message)
+        # We need to find the last AIMessage content before the current HumanMessage
+        question_just_answered = "Initial Prompt" # Fallback
+        for msg in reversed(messages[:-1]):
+            if isinstance(msg, AIMessage):
+                question_just_answered = msg.content
+                break
         
-        # Store the Q&A pair
+        # Store the Q&A pair (only storing the user's input/response for the history)
         answers.append({"question": question_just_answered, "answer": user_input})
         
         # 2. Get LLM to process and determine next step
-        with st.spinner("Analyzing your response and planning the next question..."):
+        with st.spinner(): # Removed verbose text
             
             interview_result = process_interview_step(llm, answers)
             
@@ -460,7 +464,7 @@ def show_experiment_page():
 
     # Text Area Definition: The actual value is stored in st.session_state["event_input"]
     st.text_area(
-        "Describe a recent, challenging, or stressful event in detail (Edit the synthesized text if needed):", # Updated prompt
+        "Describe a recent, challenging, or stressful event in detail (Edit the synthesized text if needed):", 
         key="event_input",
         height=200,
         placeholder=f"Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital. (Minimum {MIN_EVENT_LENGTH} characters required)",
@@ -471,7 +475,6 @@ def show_experiment_page():
     current_length = len(event_text)
 
     # --- BUTTON LOGIC: Only disabled if generation is running ---
-    # The button is now always clickable unless actively generating.
     button_disabled = st.session_state.is_generating
     
     if st.button("Generate Repurposing Guidance", type="primary", use_container_width=True, disabled=button_disabled):
@@ -505,7 +508,6 @@ def show_experiment_page():
         with st.spinner("Analyzing Congruence and Generating Guidance..."):
             
             # 1. Appraisal Analysis
-            # The result is now only the {'congruence_ratings': {...}} object
             analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
             
             if analysis_data:
@@ -586,18 +588,18 @@ def show_experiment_page():
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
                     "condition": st.session_state.selected_condition,
                     "event_description": st.session_state.event_text,
-                    "interview_answers": st.session_state.interview_answers, # Store full Q&A history
-                    "motive_importance_scores": st.session_state.motive_scores, # User's 1-7 ratings
-                    "appraisal_analysis": st.session_state.analysis_data, # LLM's structured analysis (now just congruence_ratings)
+                    "interview_answers": st.session_state.interview_answers, 
+                    "motive_importance_scores": st.session_state.motive_scores, 
+                    "appraisal_analysis": st.session_state.analysis_data, 
                     "llm_guidance": st.session_state.final_guidance,
-                    "participant_ratings": st.session_state.collected_ratings, # User's 1-7 ratings for guidance
-                    "participant_comments": st.session_state.guidance_comments, # New Field
+                    "participant_ratings": st.session_state.collected_ratings, 
+                    "participant_comments": st.session_state.guidance_comments, 
                 }
                 
                 if save_data(trial_data):
                     # Hide ratings, set redirect flag, and trigger page change
                     st.session_state.show_ratings = False
-                    st.session_state.is_redirecting = True # <--- Flicker Fix
+                    st.session_state.is_redirecting = True 
                     st.session_state.page = 'thank_you' 
                     st.rerun()
 
@@ -615,12 +617,12 @@ def show_thank_you_page():
 
     if st.button("Run Another Trial", type="primary"):
         # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
-        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating', 'guidance_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: # Clean up all chat-related state
+        for key in ['final_guidance', 'analysis_data', 'selected_condition', 'event_text', 'collected_ratings', 'show_ratings', 'event_input', 'is_redirecting', 'is_generating', 'guidance_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized']: 
             if key in st.session_state:
                 del st.session_state[key]
         
-        # Go directly to the experiment page, using the existing motive scores
-        st.session_state.page = 'chat' # Start the next trial with the chat page
+        # Go directly to the chat page to start the next trial
+        st.session_state.page = 'chat' 
         st.rerun()
 
 
