@@ -387,8 +387,20 @@ def show_chat_page():
     messages = st.session_state.interview_messages
     answers = st.session_state.interview_answers
     
+    # --- Handle completion and transition ---
+    if st.session_state.event_text_synthesized:
+        st.success("✅ Interview complete! Story compiled. Proceed to the next stage.")
+        
+        # NOTE: The transition logic for LLM completion is handled here.
+        # For a manual skip, the transition happens directly inside the skip logic below.
+        if st.button("Next: Review Event Description", type="primary", use_container_width=True):
+            st.session_state.page = 'experiment'
+            st.rerun()
+        return
+        
     # --- Display chat history ---
-    chat_container = st.container(height=400, border=True)
+    # Reduced height to minimize the gap between the history and the sticky input at the bottom.
+    chat_container = st.container(height=350, border=True)
 
     with chat_container:
         for message in messages:
@@ -396,14 +408,6 @@ def show_chat_page():
             with st.chat_message(role):
                 st.markdown(message.content)
 
-    # --- Handle completion and transition ---
-    if st.session_state.event_text_synthesized:
-        st.success("✅ Interview complete!")
-        if st.button("Next: Review Event Description", type="primary", use_container_width=True):
-            st.session_state.page = 'experiment'
-            st.rerun()
-        return
-        
     # --- Manual Skip Button Logic (Appears *above* the sticky chat input) ---
     if st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True):
         if not answers:
@@ -417,10 +421,12 @@ def show_chat_page():
             if interview_result['status'] == 'complete':
                 st.session_state.event_text_synthesized = interview_result['final_narrative']
                 messages.append(AIMessage(content=interview_result['conversational_response']))
+                # NEW: Direct transition to the experiment page after successful skip.
+                st.session_state.page = 'experiment' 
             elif interview_result['status'] == 'error':
                  messages.append(AIMessage(content=interview_result['conversational_response']))
         
-        st.rerun() # Rerun to show completion message and button
+        st.rerun() # Rerun to transition or show error/completion message
 
     # --- User Input Loop (Standard sticky chat input) ---
     # NOTE: st.chat_input will always be fixed to the bottom of the viewport.
@@ -440,7 +446,7 @@ def show_chat_page():
         answers.append({"question": question_just_answered, "answer": user_input})
         
         # 2. Get LLM to process and determine next step
-        with st.spinner(): # Removed verbose text
+        with st.spinner("Processing..."): 
             
             interview_result = process_interview_step(llm, answers, is_skip=False)
             
