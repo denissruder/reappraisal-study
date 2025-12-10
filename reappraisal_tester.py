@@ -556,7 +556,12 @@ def show_narrative_review_page():
     if 'final_event_narrative' not in st.session_state:
         st.session_state.final_event_narrative = st.session_state.event_text_synthesized
 
-    edited_narrative = st.text_area( I really like this exact code. I want to be exactly as it is. Adapt to our code. # --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
+    edited_narrative = st.text_area( 
+        "Your Final, Confirmed Event Narrative:",
+        value=st.session_state.final_event_narrative,
+        height=300
+    ) 
+# --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
 
 INTERVIEW_PROMPT_TEMPLATE = """
 
