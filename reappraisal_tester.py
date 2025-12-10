@@ -2,154 +2,227 @@ import streamlit as st
 import os
 import json
 import datetime
+import uuid
+import time
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
 
-# --- Inject Custom CSS to HIDE the Streamlit Sidebar Elements ---
-# This CSS targets the navigation (the hamburger menu) and the sidebar wrapper,
-# ensuring a clean, fullscreen view for the participant by removing the sidebar controls.
-st.markdown(
-    """
-    <style>
-    /* Hide the sidebar button (hamburger menu) */
-    [data-testid="stSidebar"] {
-        display: none !important;
-    }
-    
-    /* Hide the top-right button to re-open the sidebar */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-    
-    /* Ensure the main content uses the available width for the centered layout */
-    .main {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# --- 0. Streamlit UI Setup ---
 
+# Set wide layout and title for better form visibility
+st.set_page_config(layout="wide", page_title="Version A: Appraisal Prediction Study (V4 - Self-Consistency)")
 
-# --- Set Streamlit page configuration ---
-# Removing 'layout="wide"' to revert to the default, narrower, centered page layout.
-st.set_page_config()
+# Inject minimal CSS for a cleaner look
+st.markdown("""
+<style>
+/* Adjust container width for forms */
+.stForm {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+/* Style for motive headers in forms */
+.stForm h4 {
+    margin-top: 20px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #ddd;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 # --- 1. CONFIGURATION & SETUP ---
 
 MODEL_NAME = "gemini-2.5-flash"
-TEMP = 0.5 
-MOTIVES = ["Achievement & Success", "Security & Stability", "Affiliation & Belonging", "Stimulation & Excitement", "Self-Direction & Autonomy"]
-RATING_DIMENSIONS = ["Believability", "Appropriateness", "Emotional Valence"]
-MOTIVE_SCALE_MAX = 7 # All ratings will be on a 1-7 scale
-MIN_EVENT_LENGTH = 200 # Minimum number of characters required for the event description
-CONDITION_OPTIONS = ["1. Neutral", "2. Appraisal-Assessed", "3. Appraisal-Aware"] # All conditions to be run
-GUIDANCE_LABELS = ["Guidance 1", "Guidance 2", "Guidance 3"] # User-facing labels
+TEMP = 0.8 # Increased temperature for more diverse CoTs
+RATING_SCALE_MAX = 9 
+MIN_NARRATIVE_LENGTH = 100
+N_COTS = 5 # *** NEW: Number of Chain-of-Thought runs for Self-Consistency ***
 
-# --- Interview Questions (The mandatory content points) ---
-INTERVIEW_QUESTIONS = [
-    "What happened? Describe this as if you were telling the story to a friend.", # Initial prompt / narrative
-    "Who else was around or involved?", # Other people
-    "What else should we know about the situation? What was the context?", # Context/Background
-    "What was the outcome?", # Outcome
-    "Why did this situation matter to you? What made it important?", # Importance/Relevance
-    "Some situations are predictable and clear, others less so. How about this one, was it predictable in any way? Why?", # Predictability
-    "Who could be considered responsible for this situation happening?", # Responsibility
-    "Would you say you were in control of this situation? Why?", # Control
-    "What would you have wanted to happen in this situation, if you could change anything?", # Desired outcome/Discrepancy 1
-    "How big of a deal this discrepancy is for you?", # Discrepancy 2
+# Comprehensive list of Motives and their Promotion/Prevention framings
+MOTIVES_FULL = [
+    {"motive": "Hedonic", "promotion": "To feel good", "prevention": "Not to feel bad"},
+    {"motive": "Physical", "promotion": "To be in good health", "prevention": "To stay safe"},
+    {"motive": "Wealth", "promotion": "To have money", "prevention": "To avoid poverty"},
+    {"motive": "Predictability", "promotion": "To understand", "prevention": "To avoid confusion"},
+    {"motive": "Competence", "promotion": "To succeed", "prevention": "To avoid failure"},
+    {"motive": "Growth", "promotion": "To learn and grow", "prevention": "To avoid monotony or decline"},
+    {"motive": "Autonomy", "promotion": "To be free to decide", "prevention": "Not to be told what to do"},
+    {"motive": "Relatedness", "promotion": "To feel connected", "prevention": "To avoid loneliness"},
+    {"motive": "Acceptance", "promotion": "To be liked", "prevention": "To avoid disapproval"},
+    {"motive": "Status", "promotion": "To stand out", "prevention": "To avoid being ignored"},
+    {"motive": "Responsibility", "promotion": "To live up to expectations", "prevention": "Not to let others down"},
+    {"motive": "Meaning", "promotion": "To make a difference", "prevention": "Not to waste my life"},
+    {"motive": "Instrumental", "promotion": "To gain something", "prevention": "To avoid something"},
 ]
+MOTIVE_NAMES = [m["motive"] for m in MOTIVES_FULL] # List of 13 motives
+
+# Keys for the 26 final scores
+MOTIVE_SCORE_KEYS = [
+    f"{m['motive']}_{dim}"
+    for m in MOTIVES_FULL for dim in ['Promotion', 'Prevention']
+]
+
+# Regulatory Focus Questionnaire items (18 items)
+REG_FOCUS_ITEMS = [
+    "In general, I am focused on preventing negative events in my life",
+    "I am anxious that I will fall short of my responsibilities and obligations",
+    "I frequently imagine how I will achieve my hopes and aspirations",
+    "I often think about the person I am afraid I might become in the future",
+    "I often think about the person I would ideally like to be in the future",
+    "I typically focus on the success I hope to achieve in the future",
+    "I often worry that I will fail to accomplish my goals",
+    "I often think about how I will achieve success",
+    "I often imagine myself experiencing bad things that I fear might happen to me",
+    "I frequently think about how I can prevent failures in my life",
+    "I am more oriented toward preventing losses than I am toward achieving gains",
+    "A major goal I have right now is to achieve my ambitions",
+    "A major goal I have right now is to avoid becoming a failure",
+    "I see myself as someone who is primarily striving to reach my “ideal self” – to fulfill my hopes, wishes, and aspirations",
+    "I see myself as someone who is primarily striving to become the self I “ought” to be – to fulfill my duties, responsibilities, and obligations",
+    "In general, I am focused on achieving positive outcomes in my life",
+    "I often imagine myself experiencing good things that I hope will happen to me",
+    "Overall, I am more oriented toward achieving success than preventing failure"
+]
+
+# Guided Interview Questions (8 items)
+INTERVIEW_QUESTIONS = [
+    "What happened? Describe a recent emotionally unpleasant event.",
+    "As far as you can tell, why did things happen the way they did?",
+    "Is this situation finished or not? If not, what could happen next?",
+    "How big of a deal is this situation for you? Why?",
+    "What would you have wanted to happen in this situation instead of what actually happened?",
+    "Who do you feel is responsible for how this situation unfolded?",
+    "Could you still change this situation if you wanted to? How?",
+    "Did things go as you expected? If not, what was unexpected?"
+]
+
+# --- RAG Contexts and Few-Shot Examples ---
+
+# RAG Source: Motive Relevance Theory
+MOTIVE_RELEVANCE_RAG = f"""
+# Motive Relevance Theory and Granular Assessment
+The goal is to predict the **relevance** of a situation to the participant's motive profile. Relevance is rated on a 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
+
+CRITICAL: For each of the {len(MOTIVE_NAMES)} core motives, you MUST predict relevance for two distinct sub-dimensions:
+1. **Promotion:** Relevance to the **growth/gain** component (e.g., To succeed/To feel good).
+2. **Prevention:** Relevance to the **safety/loss** component (e.g., To avoid failure/Not to feel bad).
+
+Your final JSON output must contain **26** key-value pairs (13 Motives * 2 Dimensions).
+"""
+
+# FEW-SHOT EXAMPLE for Appraisal Prediction
+APPRAISAL_FEW_SHOT_EXAMPLE = f"""
+# FEW-SHOT EXAMPLE: High Competence and Status Relevance
+INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a major project. I feel intense shame and worry about my job."
+---
+<REASONING>
+1. **Competence Analysis:** Public failure is a direct threat.
+   - Promotion (To succeed): High relevance because the failure means a loss of success (9).
+   - Prevention (To avoid failure): Extremely high relevance because the fear of failure was realized (9).
+2. **Status Analysis:** Public criticism directly impacts social standing.
+   - Promotion (To stand out): Hindered, so highly relevant (7).
+   - Prevention (To avoid being ignored): Hindered, fear of negative attention was realized (8).
+3. **Physical Analysis:** No direct physical impact. All scores low (1).
+</REASONING>
+OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
+{{"motive_relevance_prediction": {{
+"Hedonic_Promotion": 4, "Hedonic_Prevention": 4,
+"Physical_Promotion": 1, "Physical_Prevention": 1,
+"Wealth_Promotion": 2, "Wealth_Prevention": 3,
+"Predictability_Promotion": 6, "Predictability_Prevention": 7,
+"Competence_Promotion": 9, "Competence_Prevention": 9,
+"Growth_Promotion": 5, "Growth_Prevention": 4,
+"Autonomy_Promotion": 3, "Autonomy_Prevention": 5,
+"Relatedness_Promotion": 4, "Relatedness_Prevention": 6,
+"Acceptance_Promotion": 7, "Acceptance_Prevention": 8,
+"Status_Promotion": 7, "Status_Prevention": 8,
+"Responsibility_Promotion": 7, "Responsibility_Prevention": 9,
+"Meaning_Promotion": 3, "Meaning_Prevention": 3,
+"Instrumental_Promotion": 7, "Instrumental_Prevention": 8
+}}}}
+"""
+
+# --- 1. LLM Initialization and Database Setup ---
+
+@st.cache_resource
+def get_llm():
+    """Initializes the LLM."""
+    if "GEMINI_API_KEY" not in st.secrets:
+        st.error("LLM Error: 'GEMINI_API_KEY' secret not found. Please check your secrets.")
+        st.stop()
+    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
+    # Pass TEMP to the LLM constructor
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=TEMP)
+    return llm
+
+llm = get_llm()
 
 try:
     from google.cloud import firestore
 except ImportError:
-    st.error("The 'google-cloud-firestore' package is not installed. Please check requirements.txt.")
+    st.error("The 'google-cloud-firestore' package is required. Please install it (`pip install google-cloud-firestore`).")
     st.stop()
 
-# 1.1 Securely load Firebase credentials and initialize Firestore client
 @st.cache_resource
 def get_firestore_client():
+    """Initializes the Firestore client."""
     if "gcp_service_account" not in st.secrets:
         st.error("Database Error: 'gcp_service_account' secret not found.")
         st.stop()
-        
     try:
         key_dict = json.loads(st.secrets["gcp_service_account"], strict=False)
         db = firestore.Client.from_service_account_info(key_dict)
-        # Status message kept for execution tracking, although hidden by CSS
-        st.sidebar.success("✅ Database Connected") 
         return db
     except Exception as e:
-        st.sidebar.error(f"❌ Database Connection Failed: {e}")
+        st.error(f"❌ Database Connection Failed: {e}")
         st.stop()
         
 db = get_firestore_client()
-COLLECTION_NAME = "reappraisal_study_trials"
+COLLECTION_NAME = "version_a_appraisal_trials_v4"
 
+# --- 2. LLM LOGIC FUNCTIONS (Self-Consistency/Multiple CoTs) ---
 
-# 1.2 Securely load Gemini API key and initialize LLM
-@st.cache_resource
-def get_llm():
-    if "GEMINI_API_KEY" not in st.secrets:
-        st.error("LLM Error: 'GEMINI_API_KEY' secret not found.")
-        st.stop()
+# --- LLM APPRAISAL PREDICTION TEMPLATE ---
+APPRAISAL_PREDICTION_TEMPLATE = f"""
+# ROLE: APPRAISAL ANALYST (Expert Psychological Assessor)
+You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This prediction must be highly granular, adhering to the 13 Motives and their 2 sub-dimensions (Promotion/Prevention).
 
-    os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
-    
-    try:
-        llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=TEMP)
-        # Status message kept for execution tracking, although hidden by CSS
-        st.sidebar.success("✅ LLM Initialized") 
-        return llm
-    except Exception as e:
-        st.sidebar.error(f"❌ LLM Initialization Failed: {e}")
-        st.stop()
+CRITICAL INSTRUCTIONS:
+1. **Use RAG Context:** Adhere to the {RATING_SCALE_MAX}-point scale and the granular definition of Relevance provided.
+2. **Chain-of-Thought (CoT):** You MUST provide your step-by-step reasoning within a <REASONING> block before providing the final JSON output.
+3. **Output Format:** The final JSON MUST contain **26** motive relevance scores, using the exact key format: `[MotiveName]_Promotion` and `[MotiveName]_Prevention`.
 
-llm = get_llm()
+# RAG CONTEXT: MOTIVE RELEVANCE THEORY
+{MOTIVE_RELEVANCE_RAG}
 
+# FEW-SHOT EXAMPLE
+{APPRAISAL_FEW_SHOT_EXAMPLE}
 
-# --- 2. LLM LOGIC FUNCTIONS ---
+--- TASK INPUT ---
+SITUATION DESCRIPTION: {{event_text}}
 
-# --- LLM APPRAISAL ANALYSIS (No change) ---
-APPRAISAL_ANALYSIS_TEMPLATE = f"""
-You are an Appraisal Analyst. Your task is to analyze the user's event description in the context of their core motives.
-Your output MUST be a valid JSON object. Do not include any text, headers, or markdown formatting outside of the JSON block.
+--- YOUR PREDICTION ---
+Begin the analysis below.
 
-The JSON object MUST contain a single field:
-1. "congruence_ratings": A dictionary where keys are the motive names from the MOTIVE LIST and values are a score from 1 (Low Congruence) to {MOTIVE_SCALE_MAX} (High Congruence). This score represents how congruent the event is with each specific motive.
+<REASONING>
+1. [Analyze Event Impact on Motive 1: Promotion, Prevention]
+2. [Analyze Event Impact on Motive 2: Promotion, Prevention]
+3. ...
+</REASONING>
 
-MOTIVE LIST: {{motive_list}}
-User's Event Description: {{event_text}}
-User's Motive Importance Scores: {{scores_list_formatted}}
-
-Provide the JSON output:
+Provide the JSON output (Only the JSON block should follow the </REASONING> tag):
 """
 
-@st.cache_data(show_spinner=False)
-def run_appraisal_analysis(llm_instance, motive_scores, event_text):
-    """Executes the LLM to perform Appraisal Analysis."""
-    
-    scores_list_formatted = "\n".join([f"- {motive}: {score}/{MOTIVE_SCALE_MAX}" for motive, score in motive_scores.items()])
-    motive_list = ", ".join(MOTIVES)
-
-    prompt = PromptTemplate(
-        input_variables=["motive_list", "event_text", "scores_list_formatted"], 
-        template=APPRAISAL_ANALYSIS_TEMPLATE
-    )
-    chain = prompt | llm_instance
-    
-    json_string = ""
+def parse_llm_json(response_content):
+    """Safely extracts and parses the JSON block from the LLM's response."""
     try:
-        response = chain.invoke(
-            {
-                "motive_list": motive_list, 
-                "event_text": event_text, 
-                "scores_list_formatted": scores_list_formatted
-            }
-        )
-        json_string = response.content.strip()
+        json_string = response_content.strip()
+        
+        # Heuristics to find the JSON start and end
+        if json_string.rfind("{") != -1:
+            json_string = json_string[json_string.rfind("{"):].strip()
         
         if json_string.startswith("```json"):
             json_string = json_string.lstrip("```json").rstrip("```")
@@ -157,202 +230,132 @@ def run_appraisal_analysis(llm_instance, motive_scores, event_text):
             json_string = json_string.lstrip("```").rstrip("```")
 
         analysis_data = json.loads(json_string, strict=False)
-        return analysis_data
         
-    except Exception as e:
-        raw_output_snippet = json_string[:200].replace('\n', '\\n')
-        st.error(f"Error during LLM Appraisal Analysis. Could not parse JSON. Error: {e}. Raw LLM output: {raw_output_snippet}...")
+        if 'motive_relevance_prediction' not in analysis_data:
+             return None # Missing required top-level key
+             
+        prediction_scores = analysis_data['motive_relevance_prediction']
+        
+        # Validate that we have the correct number of keys (26)
+        if len(prediction_scores) != len(MOTIVE_SCORE_KEYS):
+            return None
+            
+        # Ensure all scores are integers/floats and within the 1-9 range
+        for key in MOTIVE_SCORE_KEYS:
+            if key not in prediction_scores or not (1 <= float(prediction_scores[key]) <= RATING_SCALE_MAX):
+                return None
+                
+        # Return the actual scores dictionary for aggregation
+        return {k: int(round(float(v))) for k, v in prediction_scores.items()}
+        
+    except Exception:
         return None
 
-# --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
-INTERVIEW_PROMPT_TEMPLATE = """
-You are a Dynamic Interviewer for a psychological study. Your goal is to collect all 10 key pieces of information (CORE QUESTIONS) about a stressful event from the user's responses, but only ask questions that are relevant or missing.
 
-Your responses must be conversational and contextual.
+@st.cache_data(show_spinner=False)
+def run_self_consistent_appraisal_prediction(llm_instance, event_text):
+    """
+    Executes the LLM N_COTS times to generate a self-consistent prediction.
+    """
+    
+    prompt = PromptTemplate(
+        input_variables=["event_text"], 
+        template=APPRAISAL_PREDICTION_TEMPLATE
+    )
+    chain = prompt | llm_instance
+    
+    valid_predictions = []
+    
+    # Run the model multiple times (Self-Consistency)
+    for i in range(N_COTS):
+        st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
+        try:
+            # Using st.cache_data means this function must be deterministic, 
+            # so we use LLM's built-in temperature/stochasticity and a simple loop.
+            response = chain.invoke({"event_text": event_text})
+            parsed_scores = parse_llm_json(response.content)
+            
+            if parsed_scores:
+                valid_predictions.append(parsed_scores)
+                st.success(f"Prediction {i+1} successful and valid.")
+            else:
+                st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.")
+                
+        except Exception as e:
+            st.error(f"Error during LLM Appraisal Prediction run {i+1}: {e}")
+        
+        # Small delay to potentially aid in CoT diversity
+        time.sleep(0.5) 
 
-The user's response history so far is:
-{qa_pairs}
+    if not valid_predictions:
+        st.error(f"All {N_COTS} LLM attempts failed to produce a valid prediction. Cannot proceed.")
+        return None
 
-The set of ALL 10 CORE QUESTIONS is:
-{all_questions}
+    # Aggregation step (Self-Consistency)
+    final_prediction = {}
+    for key in MOTIVE_SCORE_KEYS:
+        # Collect all scores for the current key from valid runs
+        scores = [p[key] for p in valid_predictions]
+        # Calculate the mean (rounding to the nearest integer as the original scale is 1-9)
+        final_prediction[key] = int(round(sum(scores) / len(scores)))
 
-Your task is:
-1. Analyze the Q&A history to determine which CORE QUESTIONS have been sufficiently covered by the user's answers.
-2. **CRITICAL RULE:** **Not all 10 CORE QUESTIONS must be explicitly covered.** Use your best judgment to transition to synthesis when the event description feels rich and complete, or if a remaining question is implicitly answered or clearly non-applicable to the specific event.
-3. If the event description is rich and complete (all necessary points covered), set 'status' to "complete".
-4. If the description is incomplete, set 'status' to "continue". Select the single most relevant and important *unanswered* question from the list to ask next.
+    st.success(f"✅ Self-Consistency complete. Aggregated result from {len(valid_predictions)} valid CoT runs.")
+    return {"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}
 
-Your output MUST be a valid JSON object.
 
-JSON Schema:
-{{
-  "status": "continue" | "complete",
-  "conversational_response": "<A natural, contextual reaction acknowledging the user's last input.>",
-  "next_question": "<The full text of the next question to ask, or null if status is 'complete'.>",
-  "final_narrative": "<The cohesive, unified story based on ALL answers. This MUST be written from a first-person perspective (using 'I' and 'my'). Only required if status is 'complete'.>"
-}}
+# --- LLM INTERVIEW SYNTHESIS (CoVe)
 
-Provide the JSON output:
-"""
-# Helper template for manual skip button: synthesize current answers into one narrative.
 SYNTHESIS_PROMPT_TEMPLATE = """
-The user has ended the interview early. Based on the Q&A history provided below, synthesize all the information into a single, cohesive, narrative summary of the stressful event.
+# ROLE: IMPARTIAL RESEARCH SYNTHESIZER
+You are an impartial and objective Research Assistant. Your sole task is to generate a single, cohesive, narrative summary of the stressful event (max 300 words).
 
-**CRITICAL:** Write the summary from a first-person perspective (using 'I' and 'my').
+**CRITICAL RULES (CoVe Check):**
+1. Write the summary from a first-person perspective (using 'I' and 'my').
+2. Do NOT offer any advice, interpretation, or psychological framing (V2 Check).
+3. Ensure the core event trigger, outcome, and unpleasant emotion are included (V1 Check).
+
+# Chain-of-Verification (CoVe) Protocol for Synthesis:
+1. **Initial Draft:** Generate the narrative summary. Enclose it in <DRAFT> tags.
+2. **Verification Check (Internal):** Answer the following two verification questions:
+    a) V1 (Completeness): Are the main event trigger, outcome, and core emotion included in the draft? (Yes/No)
+    b) V2 (Objectivity): Does the draft contain any language that judges, advises, or suggests coping strategies? (Yes/No)
+3. **Final Revision:** If V1 is 'No' OR if V2 is 'Yes', revise the description to fix the issue. If both checks pass, use the draft.
+4. **Final Output:** Present ONLY the final, verified, and revised description.
 
 Q&A History:
 {qa_pairs}
 
-Provide the complete, unified narrative summary:
+Provide the complete, unified narrative summary, following the CoVe steps. The final, verified narrative must be wrapped in a <FINAL_NARRATIVE> tag.
 """
 
-
-def process_interview_step(llm_instance, interview_history, is_skip=False):
-    """Executes the LLM to manage the conversation flow or synthesize the narrative."""
-    
+def process_interview_step(llm_instance, interview_history):
+    # Function body remains the same
     qa_pairs_formatted = "\n---\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in interview_history])
-    
-    if is_skip:
-        # If user clicked skip, force synthesis immediately
-        prompt = PromptTemplate(input_variables=["qa_pairs"], template=SYNTHESIS_PROMPT_TEMPLATE)
-        chain = prompt | llm_instance
-        try:
-            response = chain.invoke({"qa_pairs": qa_pairs_formatted})
-            # For manual skip, we generate the narrative directly and wrap it.
-            return {
-                "status": "complete",
-                "conversational_response": "Understood. Thank you for sharing your story so far. I've compiled everything into a single narrative for the next step.",
-                "next_question": None,
-                "final_narrative": response.content.strip()
-            }
-        except Exception as e:
-            st.error(f"Error during manual Synthesis: {e}")
-            return {"status": "error", "conversational_response": "I ran into an issue while compiling your story. Please try submitting the narrative in the next step manually.", "next_question": None, "final_narrative": "ERROR: Could not synthesize story."}
-
-
-    # Standard dynamic interview flow
-    all_questions_formatted = "\n".join([f"- {q}" for q in INTERVIEW_QUESTIONS])
-    
-    prompt = PromptTemplate(
-        input_variables=["qa_pairs", "all_questions"], 
-        template=INTERVIEW_PROMPT_TEMPLATE
-    )
+    prompt = PromptTemplate(input_variables=["qa_pairs"], template=SYNTHESIS_PROMPT_TEMPLATE)
     chain = prompt | llm_instance
     
     try:
-        response = chain.invoke(
-            {
-                "qa_pairs": qa_pairs_formatted, 
-                "all_questions": all_questions_formatted
-            }
-        )
-        json_string = response.content.strip()
-
-        if json_string.startswith("```json"):
-            json_string = json.loads(json_string.lstrip("```json").rstrip("```"), strict=False)
-        elif json_string.startswith("```"):
-            json_string = json.loads(json_string.lstrip("```").rstrip("```"), strict=False)
+        response = chain.invoke({"qa_pairs": qa_pairs_formatted})
+        final_narrative = ""
+        if "<FINAL_NARRATIVE>" in response.content:
+            final_narrative = response.content.split("<FINAL_NARRATIVE>")[1].split("</FINAL_NARRATIVE>")[0].strip()
         else:
-            json_string = json.loads(json_string, strict=False) # Attempt simple load
+            final_narrative = response.content.strip()
 
-        result = json_string
-        return result
+        return {
+            "status": "complete",
+            "conversational_response": "Thank you. I have compiled everything into the narrative below for your review.",
+            "final_narrative": final_narrative
+        }
     except Exception as e:
-        # Fallback error handling
-        st.error(f"Error during LLM Interview Processing. Error: {e}")
-        # Return a safe, basic structure to continue the flow
-        return {"status": "error", "conversational_response": "I ran into an issue while processing that. Can you please tell me more about what happened?", "next_question": INTERVIEW_QUESTIONS[0], "final_narrative": None}
+        st.error(f"Error during Narrative Synthesis: {e}")
+        return {"status": "error", "conversational_response": "I ran into an issue while compiling your story.", "final_narrative": "ERROR: Could not synthesize story."}
 
-
-# --- PROMPT TEMPLATE GENERATION (No change) ---
-def get_prompts_for_condition(condition, motive_scores, event_text, analysis_data):
-    """Generates the specific system instruction (template) for Guidance."""
-    
-    # Analysis data now only contains 'congruence_ratings'
-    congruence_ratings = analysis_data.get("congruence_ratings", {})
-
-    # This formatted list contains BOTH user Importance (1-7) and LLM Congruence (1-7) scores
-    scores_list_formatted = "\n".join([
-        f"- {motive} (Importance): {score}/{MOTIVE_SCALE_MAX} | (Congruence): {congruence_ratings.get(motive, 'N/A')}/{MOTIVE_SCALE_MAX}" 
-        for motive, score in motive_scores.items()
-    ])
-    
-    # --- 1. Neutral Condition ---
-    if condition == "1. Neutral":
-        template = """
-You are a Baseline Repurposing Assistant. Your task is to generate reappraisal guidance by helping the user identify a motive, value, or goal that the stressful situation they described is, in some way, congruent with. Your guidance must encourage a shift in perspective.
-
-Rules:
-1. Do not use any personalization data about the user.
-2. The response must be a concise, action-oriented directive focusing on a reframed perspective.
-3. Do not repeat the user's story.
-
-User's Event Description: {event_text}
-Guidance:
-"""
-        return PromptTemplate(input_variables=["event_text"], template=template)
-
-    # --- 2. Appraisal-Assessed Condition (Only uses Congruence Scores) ---
-    elif condition == "2. Appraisal-Assessed":
-        # Only provide the Congruence ratings (1-7 scale) for LLM analysis
-        congruence_only_list = "\n".join([
-            f"- {motive}: {congruence_ratings.get(motive, 'N/A')}/{MOTIVE_SCALE_MAX}" 
-            for motive in motive_scores.keys()
-        ])
-        
-        mock_analysis_data = f"""
-The situation analysis (Appraisals) is based on the following congruence scores (1=Low, {MOTIVE_SCALE_MAX}=High):
-{congruence_only_list}
-"""
-        template = f"""
-You are an Appraisal-Assessed Repurposing Assistant. Your task is to generate reappraisal guidance. You have access to the situation analysis:
-{mock_analysis_data}
-
-Rules:
-1. Analyze the congruence scores and **identify all motives that have a high congruence score (5 or higher on the 1-7 scale)**.
-2. **FALLBACK:** If no motive meets the 5+ threshold, **identify ALL motives that share the absolute highest congruence score** (the maximum score found in the list).
-3. Generate guidance that leverages the identified motive(s) to provide a robust, multifaceted reframe of the event (Repurposing strategy).
-4. The response must be a concise, action-oriented directive focusing on a reframed perspective.
-5. **CRITICAL:** The final output guidance MUST NOT contain any numbers, scores, or motive ratings (from either the user or the LLM).
-6. Do not repeat the user's story.
-
-User's Event Description: {{event_text}}
-Guidance:
-"""
-        return PromptTemplate(input_variables=["event_text"], template=template)
-
-    # --- 3. Appraisal-Aware Condition (Uses Importance (1-7) and Congruence (1-7)) ---
-    elif condition == "3. Appraisal-Aware":
-        motivational_profile = f"""
-The user's full Motive Profile, combining both Importance and Congruence scores, is:
-{scores_list_formatted}
-
-(Importance is the user's self-rating on a 1-{MOTIVE_SCALE_MAX} scale; Congruence is the LLM's analysis on a 1-{MOTIVE_SCALE_MAX} scale.)
-"""
-        template = f"""
-You are a Personalized Repurposing Coach. Your task is to generate highly personalized reappraisal guidance. You have access to the user's full motivational profile and situation analysis:
-{motivational_profile}
-
-Rules:
-1. Analyze the profile to find **all motives** that are **both highly important (user score of 5 or higher) and highly congruent (LLM score of 5 or higher)**. This set represents the most viable targets for repurposing.
-2. **FALLBACK:** If no motive meets the combined high threshold, **identify ALL motives that share the absolute highest LLM congruence score** (the maximum congruence score found in the list), regardless of their importance score.
-3. Generate guidance that specifically attempts to activate this **set of personalized target motives** or the fallback set to help them re-evaluate the stressful event using the repurposing strategy.
-4. The guidance should prioritize framing the situation as an opportunity to reinforce or demonstrate these target motives.
-5. The response must be a concise, action-oriented directive.
-6. **CRITICAL:** The final output guidance MUST NOT contain any numbers, scores, or motive ratings (from either the user or the LLM).
-7. Do not repeat the user's story.
-
-User's Event Description: {{event_text}}
-Guidance:
-"""
-        return PromptTemplate(input_variables=["event_text"], template=template)
-
-    # If no condition matched, return None, causing the TypeError downstream
-    return None
 
 # --- 3. DATA SAVING LOGIC (No change) ---
+
 def save_data(data):
-    """Saves the comprehensive trial data as a new document in Firestore."""
+    # Function body remains the same
     try:
         db.collection(COLLECTION_NAME).add(data)
         return True
@@ -360,82 +363,71 @@ def save_data(data):
         st.error(f"❌ Failed to save data: {e}. Check Firestore rules and credentials.")
         return False
 
-# --- 4. PAGE RENDERING FUNCTIONS ---
 
-def show_consent_page():
-    """Renders the Letter of Consent page."""
-    st.title("📄 Letter of Consent")
-    st.markdown("""
-    Welcome to the Cognitive Repurposing Study. Before we begin, please review the following information.
-
-    **Purpose:** You will be asked to describe a stressful event and then receive AI-generated guidance designed to help you reframe the situation. The goal is to study how different types of personalization affect the perceived helpfulness of the guidance.
-
-    **Data Collection:** All text input, the guidance you receive, and your final ratings will be stored anonymously in our research database (Firestore). Your identity will not be attached to the data.
-
-    **Risk:** There are no known risks beyond those encountered in daily life. You may stop at any time.
-
-    By clicking 'I Consent,' you agree to participate in this simulated study protocol.
-    """)
-    
-    if st.button("I Consent to Participate", type="primary"):
-        st.session_state.page = 'motives'
-        st.rerun()
+# --- 4. STREAMLIT PAGE RENDERING FUNCTIONS (No change in structure from V3) ---
 
 def show_motives_page():
-    """Renders the Motive Assessment page (1-7 Radio Buttons)."""
-    st.title("🎯 Motive Importance Assessment")
-    st.markdown(f"""
-    Please rate how important each of the following psychological motives is **to you** personally, on a scale of 1 to {MOTIVE_SCALE_MAX}.
+    st.title("🎯 Initial Assessment: General Profile")
+    
+    if 'general_motive_scores' not in st.session_state:
+        st.session_state.general_motive_scores = {
+            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
+        }
+        st.session_state.reg_focus_scores = {item: 5 for item in REG_FOCUS_ITEMS}
 
-    **1 = Not Important At All** | **{MOTIVE_SCALE_MAX} = Extremely Important**
-    """)
+    with st.form("initial_assessment_form"):
+        st.subheader("1. General Motive Importance & Focuses")
+        st.markdown(f"""
+        Please rate the importance of the following {len(MOTIVES_FULL)} motives to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
+        You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
+        """)
+        st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
-    motive_scores = {}
-    with st.form("motive_form"):
-        # Create radio buttons for each motive
-        for motive in MOTIVES:
-            st.markdown(f"**How important is {motive} to you?**")
-            motive_scores[motive] = st.radio(
-                label=f"Rating for {motive}",
-                options=list(range(1, MOTIVE_SCALE_MAX + 1)),
-                index=3, # Default to the middle of the 1-7 scale
-                horizontal=True,
-                key=f"motive_radio_{motive}"
+        motive_scores = st.session_state.general_motive_scores
+        for m in MOTIVES_FULL:
+            st.markdown(f"#### Motive: {m['motive']}")
+            
+            # Promotion Focus
+            motive_scores[m['motive']]['Promotion'] = st.slider(
+                f"Promotion Focus: *{m['promotion']}*",
+                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Promotion'], horizontal=True, key=f"gen_{m['motive']}_Promotion"
             )
+            # Prevention Focus
+            motive_scores[m['motive']]['Prevention'] = st.slider(
+                f"Prevention Focus: *{m['prevention']}*",
+                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Prevention'], horizontal=True, key=f"gen_{m['motive']}_Prevention"
+            )
+
+        st.markdown("---")
         
-        if st.form_submit_button("Next: Start Interview"): 
-            # Ensure all values are collected before proceeding
-            if all(motive_scores.values()):
-                st.session_state.motive_scores = motive_scores
-                st.session_state.page = 'chat' # Navigate to new chat page
-                st.rerun()
-            else:
-                st.warning("Please rate all motives before proceeding.")
+        st.subheader("2. Regulatory Focus (General Tendency)")
+        st.markdown(f"Please indicate how true the following {len(REG_FOCUS_ITEMS)} statements are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
+        st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
+        
+        reg_focus_scores = st.session_state.reg_focus_scores
+        for i, item in enumerate(REG_FOCUS_ITEMS):
+            st.session_state.reg_focus_scores[item] = st.slider(
+                f"Item {i+1}: {item}",
+                1, RATING_SCALE_MAX, reg_focus_scores[item], horizontal=True, key=f"reg_focus_{i}"
+            )
+
+        if st.form_submit_button("Next: Start Interview", type="primary"):
+            st.session_state.page = 'chat'
+            st.rerun()
 
 def show_chat_page():
-    """Renders the guided chat interview to collect event details and synthesize a narrative."""
-    st.header("🗣️ Event Interview: Tell Me Your Story")
-    st.markdown("This structured conversation ensures we gather all the necessary context about your event for the AI analysis.")
+    st.header("🗣️ Event Interview")
+    st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context.")
 
-    # Initialize chat state
     if 'interview_messages' not in st.session_state:
-        st.session_state.interview_messages = [AIMessage(content="Hello! Let's start by hearing your story: " + INTERVIEW_QUESTIONS[0])]
+        st.session_state.interview_messages = [AIMessage(content=INTERVIEW_QUESTIONS[0])]
         st.session_state.interview_answers = []
+        st.session_state.next_q_index = 1
         st.session_state.event_text_synthesized = None
 
     messages = st.session_state.interview_messages
     answers = st.session_state.interview_answers
     
-    # --- Handle completion and transition ---
-    if st.session_state.event_text_synthesized:
-        st.success("✅ Interview complete! Story compiled. Proceed to the next stage.")
-        if st.button("Next: Review Event Description", type="primary", use_container_width=True):
-            st.session_state.page = 'experiment'
-            st.rerun()
-        return
-
-    # --- Conversation History ---
-    # Fixed height for chat history container
     chat_container = st.container(height=450, border=True)
 
     with chat_container:
@@ -444,348 +436,221 @@ def show_chat_page():
             with st.chat_message(role):
                 st.markdown(message.content)
 
-    # --- Manual Skip Button Logic ---
-    skip_button_clicked = st.button("Skip Interview & Use Current Story", type="secondary", use_container_width=True)
-    
-    if skip_button_clicked:
+    if st.session_state.event_text_synthesized:
+        st.success("✅ Interview complete. Proceed to the next step.")
+        if st.button("Next: Review and Confirm Narrative", type="primary", use_container_width=True):
+            st.session_state.page = 'review_narrative'
+            st.rerun()
+        return
+
+    if user_input := st.chat_input("Your Response:"):
         
-        # Check for answers and display error without calling st.rerun yet.
-        if not answers:
-            st.error("Please provide at least a starting description of the event before skipping.")
+        messages.append(HumanMessage(content=user_input))
+        
+        question_just_answered = messages[-2].content if len(messages) >= 2 else INTERVIEW_QUESTIONS[0]
+        answers.append({"question": question_just_answered, "answer": user_input})
+        
+        if st.session_state.next_q_index < len(INTERVIEW_QUESTIONS):
+            next_question = INTERVIEW_QUESTIONS[st.session_state.next_q_index]
+            st.session_state.next_q_index += 1
+            messages.append(AIMessage(content=f"Thank you. {next_question}"))
         else:
-            with st.spinner("Compiling your story..."):
-                # Manually trigger the synthesis logic
-                interview_result = process_interview_step(llm, answers, is_skip=True)
+            with st.spinner("Compiling and verifying your story..."): 
+                interview_result = process_interview_step(llm, answers)
                 
                 if interview_result['status'] == 'complete':
                     st.session_state.event_text_synthesized = interview_result['final_narrative']
                     messages.append(AIMessage(content=interview_result['conversational_response']))
-                    # Direct transition to the experiment page after successful skip.
-                    st.session_state.page = 'experiment' 
+                
                 elif interview_result['status'] == 'error':
                      messages.append(AIMessage(content=interview_result['conversational_response']))
-            
-            # Rerun is placed here to trigger the state update only after processing the skip.
-            st.rerun() 
-
-    # --- User Input Loop (Standard sticky chat input) ---
-    if user_input := st.chat_input("Your Response:"):
         
-        # 1. Store user response
-        messages.append(HumanMessage(content=user_input))
-        
-        # Determine the question the user just answered (last AI message)
-        question_just_answered = "Initial Prompt" # Fallback
-        for msg in reversed(messages[:-1]):
-            if isinstance(msg, AIMessage):
-                question_just_answered = msg.content
-                break
-        
-        # Store the Q&A pair (only storing the user's input/response for the history)
-        answers.append({"question": question_just_answered, "answer": user_input})
-        
-        # 2. Get LLM to process and determine next step
-        with st.spinner("Processing..."): 
-            
-            interview_result = process_interview_step(llm, answers, is_skip=False)
-            
-            if interview_result['status'] == 'continue':
-                # Add conversational response and next question
-                messages.append(AIMessage(content=f"{interview_result['conversational_response']} {interview_result['next_question']}"))
-            
-            elif interview_result['status'] == 'complete':
-                # Interview finished! Store narrative and display conclusion.
-                st.session_state.event_text_synthesized = interview_result['final_narrative']
-                messages.append(AIMessage(content=interview_result['conversational_response']))
-            
-            elif interview_result['status'] == 'error':
-                 messages.append(AIMessage(content=interview_result['conversational_response']))
-                 # If an error, we rely on the error message to guide the user.
+        st.rerun()
 
-        st.rerun() # Rerun to show updated state and messages
-
-
-def show_experiment_page():
-    """Renders the Core Experiment Logic page, generating and collecting ratings for all conditions simultaneously."""
+def show_narrative_review_page():
+    # Function body remains the same
+    st.title("📝 Review & Confirm Event Description")
+    st.markdown("The system has compiled your interview responses into a single, cohesive narrative. Please review and edit the text to ensure it is **accurate and complete**.")
     
-    # --- REDIRECTION GUARD (Fixes flicker on submit) ---
-    if st.session_state.get('is_redirecting', False):
-        return
-    # ----------------------------------------------------
-    
-    st.title("🧪 Experiment: Guidance Elicitation & Comparison")
-    
-    # Check dependencies
-    if 'motive_scores' not in st.session_state or 'event_text_synthesized' not in st.session_state:
-        st.warning("Please complete the Motive Assessment and Event Interview first.")
-        st.session_state.page = 'motives' if 'motive_scores' not in st.session_state else 'chat'
-        return
-    
-    # Initialize necessary state variables
-    if 'is_generating_all' not in st.session_state:
-        st.session_state.is_generating_all = False
-    if 'event_text_for_llm' not in st.session_state:
-        st.session_state.event_text_for_llm = ""
-        
-    # Pre-populate event input with synthesized text
-    if 'event_text_synthesized' in st.session_state and 'event_input' not in st.session_state:
-        st.session_state.event_input = st.session_state.event_text_synthesized
+    if 'final_event_narrative' not in st.session_state:
+        st.session_state.final_event_narrative = st.session_state.event_text_synthesized
 
-    # Event Input Area
-    st.subheader("Event Description Review")
-
-    # Text Area Definition: The actual value is stored in st.session_state["event_input"]
-    st.text_area(
-        "Describe a recent, challenging, or stressful event in detail (Edit the synthesized text if needed):", 
-        key="event_input",
-        height=200,
-        placeholder=f"Example: I have been working 18-hour days to meet a client deadline, and I worry about the quality of my output and missing my child's recital. (Minimum {MIN_EVENT_LENGTH} characters required)",
+    edited_narrative = st.text_area(
+        "Your Final, Confirmed Event Narrative:",
+        value=st.session_state.final_event_narrative,
+        height=300
     )
     
-    # Read the current content directly from session state (which holds the latest input)
-    event_text = st.session_state.get("event_input", "") 
-    current_length = len(event_text)
-
-    # --- BUTTON LOGIC: Only disabled if generation is running or ratings are showing ---
-    button_disabled = st.session_state.is_generating_all or st.session_state.get('show_all_ratings', False)
-    
-    if st.button("Generate All Guidance Responses", type="primary", use_container_width=True, disabled=button_disabled):
-        
-        # 1. Input Validation Check 
-        if current_length < MIN_EVENT_LENGTH:
-            remaining_chars = MIN_EVENT_LENGTH - current_length
-            st.error(
-                f"⚠️ Please ensure your event description is substantial. A minimum of {MIN_EVENT_LENGTH} characters is required for proper LLM analysis. You need **{remaining_chars}** more characters."
-            )
-            st.session_state.is_generating_all = False 
+    if st.button("Confirm Narrative and Proceed", type="primary"):
+        if len(edited_narrative) < MIN_NARRATIVE_LENGTH:
+            st.error(f"Please ensure the narrative is substantial (at least {MIN_NARRATIVE_LENGTH} characters).")
             return
-
-        # 2. Start Generation Process
-        st.session_state.is_generating_all = True
-        st.session_state.event_text_for_llm = event_text 
-        st.session_state.event_description_edited = event_text 
+            
+        st.session_state.final_event_narrative = edited_narrative
+        st.session_state.page = 'situation_rating'
         st.rerun()
 
-    # --- LLM EXECUTION PHASE ---
-    if st.session_state.get('is_generating_all', False):
-        
-        event_text_to_process = st.session_state.event_text_for_llm
-        all_guidance_data = {}
-        analysis_data = None
+def show_situation_rating_page():
+    st.title("📊 Situation Appraisal: Your Perspective (26 Scores)")
+    st.markdown(f"""
+    Please rate how **relevant** each of the following motives and their focuses was to the **event you just described**CRITICAL RULES (CoVe Check):**
+1. Write the summary from a first-person perspective (using 'I' and 'my').
+2. Do NOT offer any advice, interpretation, or psychological framing (V2 Check).
+3. Ensure the core event trigger, outcome, and unpleasant emotion are included (V1 Check).
 
-        # Using a spinner while the LLM runs
-        with st.spinner("Analyzing Congruence and Generating Guidance for all 3 versions..."):
-            
-            # 1. Appraisal Analysis (Run ONCE)
-            analysis_data = run_appraisal_analysis(llm, st.session_state.motive_scores, event_text_to_process)
-            
-            if analysis_data:
-                # Store analysis data once at the top level of session state
-                st.session_state.appraisal_analysis = analysis_data 
-                
-                # 2. Guidance Generation for EACH condition
-                # Use enumerate to pair user-facing label with internal condition name
-                for i, condition in enumerate(CONDITION_OPTIONS):
-                    user_label = GUIDANCE_LABELS[i]
-                    
-                    prompt_template = get_prompts_for_condition(
-                        condition, st.session_state.motive_scores, event_text_to_process, analysis_data
-                    )
-                    
-                    chain = prompt_template | llm
-                    try:
-                        response = chain.invoke({"event_text": event_text_to_process})
-                        guidance = response.content
-                        
-                        all_guidance_data[user_label] = {
-                            "guidance": guidance,
-                            "condition_id": condition, # Store internal condition name for data saving
-                        }
-                        
-                    except Exception as e:
-                        st.error(f"An error occurred during LLM Guidance generation for '{condition}'. Error: {e}")
-                        all_guidance_data[user_label] = {
-                            "guidance": f"ERROR: Could not generate guidance for {condition}.", 
-                            "condition_id": condition, 
-                        }
+# Chain-of-Verification (CoVe) Protocol for Synthesis:
+1. **Initial Draft:** Generate the narrative summary. Enclose it in <DRAFT> tags.
+2. **Verification Check (Internal):** Answer the following two verification questions:
+    a) V1 (Completeness): Are the main event trigger, outcome, and core emotion included in the draft? (Yes/No)
+    b) V2 (Objectivity): Does the draft contain any language that judges, advises, or suggests coping strategies? (Yes/No)
+3. **Final Revision:** If V1 is 'No' OR if V2 is 'Yes', revise the description to fix the issue. If both checks pass, use the draft.
+4. **Final Output:** Present ONLY the final, verified, and revised description.
 
-                # Success/Completion: Store data and prepare for display
-                st.session_state.all_guidance_data = all_guidance_data
-                st.session_state.show_all_ratings = True
-            
-            else:
-                st.session_state.show_all_ratings = False
-                # If analysis failed, clear the temporary analysis state
-                if 'appraisal_analysis' in st.session_state:
-                    del st.session_state.appraisal_analysis
-                st.error("Failed to run initial Appraisal Analysis. Cannot generate guidance.")
+Q&A History:
+{qa_pairs}
+
+Provide the complete, unified narrative summary, following the CoVe steps. The final, verified narrative must be wrapped in a <FINAL_NARRATIVE> tag.
+** on a scale of 1 to {RATING_SCALE_MAX}.
     
-        # 3. Clean up and trigger final display rerun
-        st.session_state.is_generating_all = False
-        if 'event_text_for_llm' in st.session_state:
-            del st.session_state.event_text_for_llm
-        st.rerun()
+    **1 = Not Relevant At All** | **{RATING_SCALE_MAX} = Extremely Relevant** (The situation strongly helped OR hindered this motive/focus.)
+    """)
+    
+    if 'situation_motive_scores' not in st.session_state:
+        st.session_state.situation_motive_scores = {
+            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
+        }
 
-    # --- Participant Rating Collection and Data Submission ---
-    if st.session_state.get('show_all_ratings', False):
+    with st.form("situation_rating_form"):
+        situation_scores = st.session_state.situation_motive_scores
         
-        st.markdown("---")
-        st.markdown("### Participant Rating & Submission")
-        st.write("Please review and rate each guidance message below. For research purposes, **comments are required** for each guidance message.")
-        
-        # Initialize all collected ratings structure
-        if "all_collected_ratings" not in st.session_state:
-            st.session_state.all_collected_ratings = {
-                label: {dim: 4 for dim in RATING_DIMENSIONS} 
-                for label in GUIDANCE_LABELS
-            }
-        
-        # Initialize comment state structure
-        if "guidance_comments_by_label" not in st.session_state:
-             st.session_state.guidance_comments_by_label = {label: "" for label in GUIDANCE_LABELS}
-
-        # Initialize overall comments field (optional, separate from per-guidance comments)
-        if "overall_comments" not in st.session_state:
-             st.session_state.overall_comments = ""
-        
-        
-        with st.form("all_ratings_form"):
+        for m in MOTIVES_FULL:
+            st.markdown(f"#### Motive: {m['motive']}")
             
-            # --- START VERTICAL LAYOUT (One after the other) ---
-            
-            # UI Loop for all three guidance responses
-            for i, label in enumerate(GUIDANCE_LABELS):
-                # Using standard Streamlit flow (no columns)
-                guidance = st.session_state.all_guidance_data.get(label, {}).get('guidance', 'Guidance not available.')
-                
-                st.subheader(f"➡️ {label}")
-                
-                with st.container(border=True):
-                    st.markdown("#### 💬 Generated Guidance")
-                    # Using an alert style container for the guidance text
-                    st.success(guidance) 
-                    
-                    # Inner loop for ratings
-                    for dim in RATING_DIMENSIONS:
-                        current_rating = st.session_state.all_collected_ratings[label].get(dim, 4)
-                        
-                        st.session_state.all_collected_ratings[label][dim] = st.slider(
-                            f"{dim} (1-{MOTIVE_SCALE_MAX})", 
-                            1, MOTIVE_SCALE_MAX, 
-                            current_rating, 
-                            key=f"rating_{label}_{dim}"
-                        )
-
-                    # --- INDIVIDUAL GUIDANCE COMMENTS FIELD (MANDATORY CHECK) ---
-                    st.session_state.guidance_comments_by_label[label] = st.text_area(
-                        f"Required Comments on {label}:", 
-                        value=st.session_state.guidance_comments_by_label.get(label, ""),
-                        key=f"comments_input_{label}", 
-                        height=100, 
-                        placeholder="Please provide feedback on this specific guidance message.",
-                    )
-
-                # Add a clear separator if it's not the last guidance panel
-                if i < len(GUIDANCE_LABELS) - 1:
-                    st.markdown("---")
-
-            # --- END VERTICAL LAYOUT ---
-            
-            # The overall comments and submit button remain full width below the guidance panels
-            st.markdown("### Overall Experience")
-            st.session_state.overall_comments = st.text_area(
-                "Optional Overall Comments on the experience:", 
-                value=st.session_state.overall_comments,
-                key="overall_comments_input", 
-                height=100, 
-                placeholder="Enter any general feedback about the experience or comparison.",
+            # Promotion Focus Relevance
+            situation_scores[m['motive']]['Promotion'] = st.slider(
+                f"Relevance to Promotion Focus: *{m['promotion']}*",
+                1, RATING_SCALE_MAX, situation_scores[m['motive']]['Promotion'], horizontal=True, key=f"sit_{m['motive']}_Promotion"
+            )
+            # Prevention Focus Relevance
+            situation_scores[m['motive']]['Prevention'] = st.slider(
+                f"Relevance to Prevention Focus: *{m['prevention']}*",
+                1, RATING_SCALE_MAX, situation_scores[m['motive']]['Prevention'], horizontal=True, key=f"sit_{m['motive']}_Prevention"
             )
 
-            # Submission button
-            submit_button = st.form_submit_button("Submit All Ratings and Save Trial Data", type="primary")
+        if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
+            st.session_state.page = 'cross_rating'Self-Consistency
+            st.rerun()
 
-            if submit_button:
-                
-                # Check for mandatory comments
-                missing_comments = [
-                    label for label in GUIDANCE_LABELS 
-                    if not st.session_state.guidance_comments_by_label.get(label, "").strip()
-                ]
-                
-                if missing_comments:
-                    st.error(f"⚠️ **Please provide comments for all guidance messages.** Missing comments for: {', '.join(missing_comments)}")
-                    # Do NOT proceed with submission
-                    return
+def show_cross_rating_page():
+    """Renders the cross-participant rating task (Step 4) and triggers the Self-Consistent LLM prediction (Step 5)."""
+    st.title("👥 Cross-Participant Appraisal (26 Scores)")
+    st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
 
-                # Consolidate results for saving
-                results_by_condition = {}
-                for label in GUIDANCE_LABELS:
-                    data = st.session_state.all_guidance_data[label]
-                    
-                    results_by_condition[data['condition_id']] = {
-                        "guidance_label": label, # Store the user-facing label for clarity
-                        "llm_guidance": data['guidance'],
-                        "participant_ratings": st.session_state.all_collected_ratings[label],
-                        "participant_comments_on_guidance": st.session_state.guidance_comments_by_label[label],
-                    }
+    # Placeholder for a random situation
+    random_situation = """
+    I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team.
+    """Self-Consistency
+    
+    st.subheader("Situation from Another Participant:")
+    with st.container(border=True):
+        st.info(random_situation)
 
-                # Prepare final data for Firestore
+    if 'cross_motive_scores' not in st.session_state:
+        st.session_state.cross_motive_scores = {
+            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
+        }
+
+    with st.form("cross_rating_form"):
+        st.markdown(f"""
+        Please rate the relevance of the situation above on a scale of 1 to {RATING_SCALE_MAX}, 
+        based on what you think the **original author felt** (their perspective). You must provide **two scores** for each motive.
+        """)
+
+        cross_scores = st.session_state.cross_motive_scores
+        for m in MOTIVES_FULL:
+            st.markdown(f"#### Motive: {m['motive']}")
+            
+            # Promotion Focus Relevance
+            cross_scores[m['motive']]['Promotion'] = st.slider(
+                f"Relevance to Promotion Focus: *{m['promotion']}* (The author's perspective)",
+                1, RATING_SCALE_MAX, cross_scores[m['motive']]['Promotion'], horizontal=True, key=f"cross_{m['motive']}_Promotion"
+            )
+            # Prevention Focus Relevance
+            cross_scores[m['motive']]['Prevention'] = st.slider(
+                f"Relevance to Prevention Focus: *{m['prevention']}* (The author's perspective)",
+                1, RATING_SCALE_MAX, cross_scores[m['motive']]['Prevention'], horizontal=True, key=f"cross_{m['motive']}_Prevention"
+            )
+        
+        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
+            st.session_state.cross_participant_situation = random_situation
+            
+            # --- CRITICAL STEP: Run Self-Consistent LLM Prediction ---
+            st.subheader("🤖 LLM Prediction (Self-Consistency in Progress...)")
+            llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
+            
+            if llm_prediction_result:
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
-                    "motive_importance_scores": st.session_state.motive_scores, 
-                    "synthesized_event_narrative": st.session_state.event_text_synthesized,
-                    "event_description_edited": st.session_state.event_description_edited,
+                    "participant_id": str(uuid.uuid4()), 
+                    
+                    # Step 1 Data (26 baseline scores)
+                    "baseline_motive_profile": st.session_state.general_motive_scores,
+                    "baseline_regulatory_focus": st.session_state.reg_focus_scores,
+                    
+                    # Step 2 Data
                     "interview_qa_history": st.session_state.interview_answers, 
-                    "overall_participant_comments": st.session_state.overall_comments, 
-                    # Store the single set of appraisal analysis data from the root state
-                    "appraisal_analysis": st.session_state.appraisal_analysis,
-                    "results_by_condition": results_by_condition, 
+                    "confirmed_event_narrative": st.session_state.final_event_narrative,
+                    
+                    # LLM Prediction Data (The LLM's Hypothesis - Self-Consistent 26 scores)
+                    "llm_motive_relevance_prediction": llm_prediction_result.get('motive_relevance_prediction'),
+                    "llm_n_cots_used": llm_prediction_result.get('n_cots_used'),
+                    
+                    # Step 3 Data (Original Author's Target - 26 scores)
+                    "situation_motive_relevance_rating": st.session_state.situation_motive_scores,
+                    
+                    # Step 4 Data (Comparison Target - 26 scores)
+                    "cross_participant_situation": st.session_state.cross_participant_situation,
+                    "cross_participant_motive_rating": st.session_state.cross_motive_scores,
                 }
                 
                 if save_data(trial_data):
-                    # Reset state and trigger page change
-                    st.session_state.show_all_ratings = False
-                    st.session_state.is_redirecting = True 
-                    st.session_state.page = 'thank_you' 
-                    st.rerun()
+                    st.session_state.page = 'thank_you'
+                else:
+                    return # Keep user on the page if save failed
+            else:
+                 # Error was already displayed inside the prediction function
+                 return
+            
+            st.rerun()
 
 def show_thank_you_page():
-    """Renders the Thank You page with option to restart the experiment."""
-    st.title("🎉 Thank You for Participating!")
-    st.success("Your trial data has been successfully submitted and saved.")
+    # Function body remains the same
+    st.title("✅ Trial Complete")
+    st.success("Your data has been successfully submitted and saved for the study.")
 
-    st.markdown("""
-    Your contribution is valuable to our research on personalized cognitive strategies.
-
-    Would you like to run the experiment one more time with a **different stressful event**?
-    *(Note: Your current Motive Importance Assessments will be used for the next trial.))*
-    """)
-
-    if st.button("Run Another Trial", type="primary"):
-        # Reset the trial-specific data and redirect flag, ensuring the experiment restarts cleanly.
-        for key in ['all_guidance_data', 'all_collected_ratings', 'show_all_ratings', 'event_description_edited', 'event_input', 'is_redirecting', 'is_generating_all', 'guidance_comments_by_label', 'overall_comments', 'interview_messages', 'interview_answers', 'event_text_synthesized', 'appraisal_analysis']: 
-            if key in st.session_state:
+    if st.button("Start a New Trial", type="primary"):
+        for key in list(st.session_state.keys()):
+            if key not in ['GEMINI_API_KEY', 'gcp_service_account']:
                 del st.session_state[key]
-        
-        # Go directly to the chat page to start the next trial
-        st.session_state.page = 'chat' 
+        st.session_state.page = 'motives'
         st.rerun()
 
 
 # --- 5. MAIN APP EXECUTION ---
 
-# Initialize page state
 if 'page' not in st.session_state:
-    st.session_state.page = 'consent'
+    st.session_state.page = 'motives'
 
-
-if st.session_state.page == 'consent':
-    show_consent_page()
-elif st.session_state.page == 'motives':
+# Page routing logic
+if st.session_state.page == 'motives':
     show_motives_page()
 elif st.session_state.page == 'chat': 
     show_chat_page()
-elif st.session_state.page == 'experiment':
-    show_experiment_page()
+elif st.session_state.page == 'review_narrative':
+    show_narrative_review_page()
+elif st.session_state.page == 'situation_rating':
+    show_situation_rating_page()
+elif st.session_state.page == 'cross_rating':
+    show_cross_rating_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
