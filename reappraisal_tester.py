@@ -28,7 +28,7 @@ st.markdown("""
     padding-bottom: 5px;
     border-bottom: 1px solid #ddd;
 }
-/* Added CSS to ensure radio buttons display horizontally and compactly in the old version (though this file is using sliders) */
+/* Reduce space between radio options for horizontal layout */
 div[data-testid="stForm"] label {
     margin-right: 15px;
 }
@@ -246,29 +246,18 @@ def parse_llm_json(response_content):
             
         # Ensure all scores are integers/floats and within the 1-9 range
         for key in MOTIVE_SCORE_KEYS:
-            # Need to handle potential string scores from LLM
-            score_value = prediction_scores.get(key)
-            if score_value is None:
+            # Safely check key existence and range constraint
+            if key not in prediction_scores or not (1 <= float(prediction_scores[key]) <= RATING_SCALE_MAX):
                 return None
-            try:
-                score_float = float(score_value)
-                if not (1 <= score_float <= RATING_SCALE_MAX):
-                     return None
-            except ValueError:
-                # Value is not convertible to float
-                return None
-
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
         
     except Exception:
-        # Log the error for debugging if needed, but return None to skip invalid runs
-        # print(f"JSON Parsing Error for content: {response_content[:200]}...") 
         return None
 
 
-# *** CRITICAL FIX: Removed st.cache_data to allow for multiple, stochastic runs ***
+@st.cache_data(show_spinner=False)
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
     Executes the LLM N_COTS times to generate a self-consistent prediction.
@@ -286,13 +275,9 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     for i in range(N_COTS):
         st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
         try:
-            # Using LLM's built-in temperature/stochasticity
+            # Using st.cache_data means this function must be deterministic, 
+            # so we use LLM's built-in temperature/stochasticity and a simple loop.
             response = chain.invoke({"event_text": event_text})
-            
-            # --- Added Debugging Aid ---
-            # print(f"Raw response {i+1}: {response.content}")
-            # ---------------------------
-            
             parsed_scores = parse_llm_json(response.content)
             
             if parsed_scores:
@@ -317,32 +302,30 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         # Collect all scores for the current key from valid runs
         scores = [p[key] for p in valid_predictions]
         # Calculate the mean (rounding to the nearest integer as the original scale is 1-9)
-        if scores: # Only average if we have scores
-            final_prediction[key] = int(round(sum(scores) / len(scores)))
-        else:
-             # Fallback to a neutral score if a key somehow failed validation (shouldn't happen with robust parsing)
-             final_prediction[key] = 5 
-
+        final_prediction[key] = int(round(sum(scores) / len(scores)))
 
     st.success(f"✅ Self-Consistency complete. Aggregated result from {len(valid_predictions)} valid CoT runs.")
     return {"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}
 
-# --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
 
+# --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
+
+# --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
 INTERVIEW_PROMPT_TEMPLATE = """
-You are a Dynamic Interviewer for a psychological study. Your goal is to collect all 10 key pieces of information (CORE QUESTIONS) about a stressful event from the user's responses, but only ask questions that are relevant or missing.
+# ROLE: Dynamic Interviewer for Psychological Study
+You are a Dynamic Interviewer for a psychological study. Your goal is to collect all 8 key pieces of information (CORE QUESTIONS) about a stressful event from the user's responses, but only ask questions that are relevant or missing.
 
 Your responses must be conversational and contextual.
 
 The user's response history so far is:
 {qa_pairs}
 
-The set of ALL 10 CORE QUESTIONS is:
+The set of ALL 8 CORE QUESTIONS is:
 {all_questions}
 
 Your task is:
 1. Analyze the Q&A history to determine which CORE QUESTIONS have been sufficiently covered by the user's answers.
-2. **CRITICAL RULE:** **Not all 10 CORE QUESTIONS must be explicitly covered.** Use your best judgment to transition to synthesis when the event description feels rich and complete, or if a remaining question is implicitly answered or clearly non-applicable to the specific event.
+2. **CRITICAL RULE:** **Not all 8 CORE QUESTIONS must be explicitly covered.** Use your best judgment to transition to synthesis when the event description feels rich and complete, or if a remaining question is implicitly answered or clearly non-applicable to the specific event.
 3. If the event description is rich and complete (all necessary points covered), set 'status' to "complete".
 4. If the description is incomplete, set 'status' to "continue". Select the single most relevant and important *unanswered* question from the list to ask next.
 
@@ -361,6 +344,7 @@ Provide the JSON output:
 
 # Helper template for manual skip button: synthesize current answers into one narrative.
 SYNTHESIS_PROMPT_TEMPLATE = """
+# ROLE: Narrative Synthesizer
 The user has ended the interview early. Based on the Q&A history provided below, synthesize all the information into a single, cohesive, narrative summary of the stressful event.
 
 **CRITICAL:** Write the summary from a first-person perspective (using 'I' and 'my').
@@ -411,15 +395,15 @@ def process_interview_step(llm_instance, interview_history, is_skip=False):
             }
         )
         json_string = response.content.strip()
-
-        # Safely parse JSON output from LLM (handling code blocks)
+        
+        # Robust JSON parsing
         if json_string.startswith("```json"):
             json_string = json_string.lstrip("```json").rstrip("```")
         elif json_string.startswith("```"):
             json_string = json_string.lstrip("```").rstrip("```")
-            
-        result = json.loads(json_string, strict=False)
 
+        # Attempt simple load
+        result = json.loads(json_string, strict=False) 
         return result
     except Exception as e:
         # Fallback error handling
@@ -431,7 +415,7 @@ def process_interview_step(llm_instance, interview_history, is_skip=False):
 # --- 3. DATA SAVING LOGIC (No change) ---
 
 def save_data(data):
-    # Function body remains the same
+    """Saves the trial data to Firestore."""
     try:
         db.collection(COLLECTION_NAME).add(data)
         return True
@@ -440,19 +424,69 @@ def save_data(data):
         return False
 
 
-# --- 4. STREAMLIT PAGE RENDERING FUNCTIONS (MODIFIED show_chat_page) ---
+# --- 4. STREAMLIT PAGE RENDERING FUNCTIONS (MODIFIED) ---
 
-def show_motives_page():
-    st.title("🎯 Initial Assessment: General Profile")
+def show_consent_page():
+    """Renders the Letter of Consent page."""
+    st.title("📄 Letter of Consent")
+    st.markdown("""
+    Welcome to the Cognitive Repurposing Study. Before we begin, please review the following information.
+
+    **Purpose:** You will be asked to describe a stressful event and then receive AI-generated guidance designed to help you reframe the situation. The goal is to study how different types of personalization affect the perceived helpfulness of the guidance.
+
+    **Data Collection:** All text input, the guidance you receive, and your final ratings will be stored anonymously in our research database (Firestore). Your identity will not be attached to the data.
+
+    **Risk:** There are no known risks beyond those encountered in daily life. You may stop at any time.
+
+    By clicking 'I Consent,' you agree to participate in this simulated study protocol.
+    """)
     
+    if st.button("I Consent", type="primary"):
+        st.session_state.page = 'regulatory'
+        st.rerun()
+
+def show_regulatory_only_page():
+    st.title("🎯 Initial Assessment: Regulatory Focus")
+    
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+
+    if 'reg_focus_scores' not in st.session_state:
+        st.session_state.reg_focus_scores = {item: 5 for item in REG_FOCUS_ITEMS}
+
+    with st.form("regulatory_assessment_form"):
+        st.subheader("Regulatory Focus (General Tendency)")
+        st.markdown(f"Please indicate how true the following {len(REG_FOCUS_ITEMS)} statements are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
+        st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
+        
+        reg_focus_scores = st.session_state.reg_focus_scores
+        for i, item in enumerate(REG_FOCUS_ITEMS):
+            # Item prefix removed, using the statement directly
+            st.session_state.reg_focus_scores[item] = st.radio(
+                f"**{item}**", 
+                options=RADIO_OPTIONS, 
+                index=reg_focus_scores[item] - 1, 
+                horizontal=True, 
+                key=f"reg_focus_{i}"
+            )
+
+        if st.form_submit_button("Next: General Motive Profile", type="primary"):
+            st.session_state.page = 'motives' # Route to motives next
+            st.rerun()
+
+def show_motives_only_page():
+    st.title("🎯 Initial Assessment: General Motive Profile")
+    
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+
     if 'general_motive_scores' not in st.session_state:
         st.session_state.general_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
-        st.session_state.reg_focus_scores = {item: 5 for item in REG_FOCUS_ITEMS}
 
     with st.form("initial_assessment_form"):
-        st.subheader("1. General Motive Importance & Focuses")
+        st.subheader("General Motive Importance & Focuses")
         st.markdown(f"""
         Please rate the importance of the following {len(MOTIVES_FULL)} motives to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
         You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
@@ -463,43 +497,38 @@ def show_motives_page():
         for m in MOTIVES_FULL:
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus
-            motive_scores[m['motive']]['Promotion'] = st.slider(
+            # Promotion Focus (NOW RADIO BUTTONS)
+            motive_scores[m['motive']]['Promotion'] = st.radio(
                 f"Promotion Focus: *{m['promotion']}*",
-                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Promotion'], key=f"gen_{m['motive']}_Promotion"
+                options=RADIO_OPTIONS, 
+                index=motive_scores[m['motive']]['Promotion'] - 1, 
+                horizontal=True, 
+                key=f"gen_{m['motive']}_Promotion"
             )
-            # Prevention Focus
-            motive_scores[m['motive']]['Prevention'] = st.slider(
+            # Prevention Focus (NOW RADIO BUTTONS)
+            motive_scores[m['motive']]['Prevention'] = st.radio(
                 f"Prevention Focus: *{m['prevention']}*",
-                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Prevention'], key=f"gen_{m['motive']}_Prevention"
-            )
-
-        st.markdown("---")
-        
-        st.subheader("2. Regulatory Focus (General Tendency)")
-        st.markdown(f"Please indicate how true the following {len(REG_FOCUS_ITEMS)} statements are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
-        st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
-        
-        reg_focus_scores = st.session_state.reg_focus_scores
-        for i, item in enumerate(REG_FOCUS_ITEMS):
-            st.session_state.reg_focus_scores[item] = st.slider(
-                f"Item {i+1}: {item}",
-                1, RATING_SCALE_MAX, reg_focus_scores[item], horizontal=True, key=f"reg_focus_{i}"
+                options=RADIO_OPTIONS, 
+                index=motive_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"gen_{m['motive']}_Prevention"
             )
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
-            st.session_state.page = 'chat'
+            st.session_state.page = 'chat' # Route to chat next
             st.rerun()
 
 
 def show_chat_page():
     st.header("🗣️ Event Interview")
-    st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context.")
+    st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context. **You can stop the interview at any time by clicking the button below.**")
 
     if 'interview_messages' not in st.session_state:
-        # Initialize with the first question from the list
-        st.session_state.interview_messages = [AIMessage(content=INTERVIEW_QUESTIONS[0])]
+        # Initialize with the first question directly
+        initial_question = INTERVIEW_QUESTIONS[0]
+        st.session_state.interview_messages = [AIMessage(content=initial_question)]
         st.session_state.interview_answers = []
+        st.session_state.next_question = initial_question # Use this to track the question just asked
         st.session_state.event_text_synthesized = None
 
     messages = st.session_state.interview_messages
@@ -519,46 +548,46 @@ def show_chat_page():
             st.session_state.page = 'review_narrative'
             st.rerun()
         return
-
-    # --- Dynamic Interview Logic ---
-    
-    # Check if we should render a manual skip button
-    # Only show skip if there has been at least one answer provided.
-    if len(answers) > 0:
-        if st.button("Skip Interview and Synthesize Current Answers", type="secondary", use_container_width=False):
-            with st.spinner("Compiling and verifying your story..."): 
-                # Trigger manual synthesis with is_skip=True
-                interview_result = process_interview_step(llm, answers, is_skip=True)
-                
-                if interview_result['status'] == 'complete':
-                    st.session_state.event_text_synthesized = interview_result['final_narrative']
-                    messages.append(AIMessage(content=interview_result['conversational_response']))
-                
-                elif interview_result['status'] == 'error':
-                    messages.append(AIMessage(content=interview_result['conversational_response']))
+        
+    # Manual skip button
+    if st.button("Skip to Narrative Synthesis", type="secondary", use_container_width=True):
+        if not answers:
+             st.error("Please provide at least one response before synthesizing the narrative.")
+             return
+             
+        # Force synthesis
+        with st.spinner("Compiling and verifying your story..."): 
+            interview_result = process_interview_step(llm, answers, is_skip=True)
+            if interview_result['status'] == 'complete':
+                st.session_state.event_text_synthesized = interview_result['final_narrative']
+                messages.append(AIMessage(content=interview_result['conversational_response']))
+            elif interview_result['status'] == 'error':
+                 # Error message is already displayed in the function
+                 messages.append(AIMessage(content=interview_result['conversational_response']))
             st.rerun()
-
+        return
 
     if user_input := st.chat_input("Your Response:"):
         
         # 1. Record User's Answer
         messages.append(HumanMessage(content=user_input))
         
-        # The question just answered is the last assistant message
-        question_just_asked = messages[-2].content 
-        answers.append({"question": question_just_asked, "answer": user_input})
+        # The question just answered is the one tracked by st.session_state.next_question
+        question_just_answered = st.session_state.next_question
+        answers.append({"question": question_just_answered, "answer": user_input})
         
-        # 2. Call Dynamic Interview LLM
-        with st.spinner("Processing response..."): 
-            # The is_skip=False path executes the dynamic LLM logic
-            interview_result = process_interview_step(llm, answers, is_skip=False)
+        # 2. Process with LLM for Next Step
+        with st.spinner("Processing your response..."): 
+            interview_result = process_interview_step(llm, answers)
+            
+            st.session_state.next_question = interview_result.get('next_question')
             
             if interview_result['status'] == 'continue':
-                # Ask the next question, combining the conversational response and the next question text
-                messages.append(AIMessage(content=interview_result['conversational_response'] + " " + interview_result['next_question']))
-                
+                # Continue the interview
+                messages.append(AIMessage(content=f"{interview_result['conversational_response']} {interview_result['next_question']}"))
+            
             elif interview_result['status'] == 'complete':
-                # Synthesis is complete, move to next state
+                # Interview is complete, save the narrative
                 st.session_state.event_text_synthesized = interview_result['final_narrative']
                 messages.append(AIMessage(content=interview_result['conversational_response']))
             
@@ -574,7 +603,7 @@ def show_narrative_review_page():
     if 'final_event_narrative' not in st.session_state:
         st.session_state.final_event_narrative = st.session_state.event_text_synthesized
 
-    edited_narrative = st.text_area( 
+    edited_narrative = st.text_area(
         "Your Final, Confirmed Event Narrative:",
         value=st.session_state.final_event_narrative,
         height=300
@@ -592,11 +621,14 @@ def show_narrative_review_page():
 def show_situation_rating_page():
     st.title("📊 Situation Appraisal: Your Perspective (26 Scores)")
     st.markdown(f"""
-    Please rate how **relevant** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX}.
+    Please rate how **relevent** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX}.
     
     **1 = Not Relevant At All** | **{RATING_SCALE_MAX} = Extremely Relevant** (The situation strongly helped OR hindered this motive/focus.)
     """)
     
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+
     if 'situation_motive_scores' not in st.session_state:
         st.session_state.situation_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
@@ -608,15 +640,21 @@ def show_situation_rating_page():
         for m in MOTIVES_FULL:
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus Relevance
-            situation_scores[m['motive']]['Promotion'] = st.slider(
+            # Promotion Focus Relevance (NOW RADIO BUTTONS)
+            situation_scores[m['motive']]['Promotion'] = st.radio(
                 f"Relevance to Promotion Focus: *{m['promotion']}*",
-                1, RATING_SCALE_MAX, situation_scores[m['motive']]['Promotion'], horizontal=True, key=f"sit_{m['motive']}_Promotion"
+                options=RADIO_OPTIONS, 
+                index=situation_scores[m['motive']]['Promotion'] - 1, 
+                horizontal=True, 
+                key=f"sit_{m['motive']}_Promotion"
             )
-            # Prevention Focus Relevance
-            situation_scores[m['motive']]['Prevention'] = st.slider(
+            # Prevention Focus Relevance (NOW RADIO BUTTONS)
+            situation_scores[m['motive']]['Prevention'] = st.radio(
                 f"Relevance to Prevention Focus: *{m['prevention']}*",
-                1, RATING_SCALE_MAX, situation_scores[m['motive']]['Prevention'], horizontal=True, key=f"sit_{m['motive']}_Prevention"
+                options=RADIO_OPTIONS, 
+                index=situation_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"sit_{m['motive']}_Prevention"
             )
 
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
@@ -637,6 +675,9 @@ def show_cross_rating_page():
     with st.container(border=True):
         st.info(random_situation)
 
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+    
     if 'cross_motive_scores' not in st.session_state:
         st.session_state.cross_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
@@ -652,15 +693,21 @@ def show_cross_rating_page():
         for m in MOTIVES_FULL:
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus Relevance
-            cross_scores[m['motive']]['Promotion'] = st.slider(
+            # Promotion Focus Relevance (NOW RADIO BUTTONS)
+            cross_scores[m['motive']]['Promotion'] = st.radio(
                 f"Relevance to Promotion Focus: *{m['promotion']}* (The author's perspective)",
-                1, RATING_SCALE_MAX, cross_scores[m['motive']]['Promotion'], horizontal=True, key=f"cross_{m['motive']}_Promotion"
+                options=RADIO_OPTIONS, 
+                index=cross_scores[m['motive']]['Promotion'] - 1, 
+                horizontal=True, 
+                key=f"cross_{m['motive']}_Promotion"
             )
-            # Prevention Focus Relevance
-            cross_scores[m['motive']]['Prevention'] = st.slider(
+            # Prevention Focus Relevance (NOW RADIO BUTTONS)
+            cross_scores[m['motive']]['Prevention'] = st.radio(
                 f"Relevance to Prevention Focus: *{m['prevention']}* (The author's perspective)",
-                1, RATING_SCALE_MAX, cross_scores[m['motive']]['Prevention'], horizontal=True, key=f"cross_{m['motive']}_Prevention"
+                options=RADIO_OPTIONS, 
+                index=cross_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"cross_{m['motive']}_Prevention"
             )
         
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
@@ -671,43 +718,28 @@ def show_cross_rating_page():
             llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
             if llm_prediction_result:
-                
-                # --- Map the list-of-dicts format (user input) to the flat score dict (DB required) ---
-                # NOTE: For the human scores, the session state format is a dict of dicts: 
-                # {'Hedonic': {'Promotion': 5, 'Prevention': 5}, ...}
-                # The LLM output is already flat: {'Hedonic_Promotion': 5, ...}
-                
-                # Flatten human scores for consistent DB storage
-                def flatten_scores(score_dict):
-                    flat = {}
-                    for motive, dims in score_dict.items():
-                        for dim, score in dims.items():
-                            flat[f"{motive}_{dim}"] = score
-                    return flat
-
-
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
                     "participant_id": str(uuid.uuid4()), 
                     
-                    # Step 1 Data (26 baseline scores - FLATTENED)
-                    "baseline_motive_profile": flatten_scores(st.session_state.general_motive_scores),
+                    # Step 1 Data (26 baseline scores)
+                    "baseline_motive_profile": st.session_state.general_motive_scores,
                     "baseline_regulatory_focus": st.session_state.reg_focus_scores,
                     
                     # Step 2 Data
                     "interview_qa_history": st.session_state.interview_answers, 
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
                     
-                    # LLM Prediction Data (The LLM's Hypothesis - Flat 26 scores)
+                    # LLM Prediction Data (The LLM's Hypothesis - Self-Consistent 26 scores)
                     "llm_motive_relevance_prediction": llm_prediction_result.get('motive_relevance_prediction'),
                     "llm_n_cots_used": llm_prediction_result.get('n_cots_used'),
                     
-                    # Step 3 Data (Original Author's Target - FLATTENED 26 scores)
-                    "situation_motive_relevance_rating": flatten_scores(st.session_state.situation_motive_scores),
+                    # Step 3 Data (Original Author's Target - 26 scores)
+                    "situation_motive_relevance_rating": st.session_state.situation_motive_scores,
                     
-                    # Step 4 Data (Comparison Target - FLATTENED 26 scores)
+                    # Step 4 Data (Comparison Target - 26 scores)
                     "cross_participant_situation": st.session_state.cross_participant_situation,
-                    "cross_participant_motive_rating": flatten_scores(st.session_state.cross_motive_scores),
+                    "cross_participant_motive_rating": st.session_state.cross_motive_scores,
                 }
                 
                 if save_data(trial_data):
@@ -726,21 +758,25 @@ def show_thank_you_page():
 
     if st.button("Start a New Trial", type="primary"):
         for key in list(st.session_state.keys()):
-            # Clear all session state except secrets
+            # Only reset session state keys, not Streamlit secrets/cached resources
             if key not in ['GEMINI_API_KEY', 'gcp_service_account']:
                 del st.session_state[key]
-        st.session_state.page = 'motives'
+        st.session_state.page = 'consent' # Route back to the start
         st.rerun()
 
 
 # --- 5. MAIN APP EXECUTION ---
 
 if 'page' not in st.session_state:
-    st.session_state.page = 'motives'
+    st.session_state.page = 'consent' # Start at consent page
 
 # Page routing logic
-if st.session_state.page == 'motives':
-    show_motives_page()
+if st.session_state.page == 'consent':
+    show_consent_page()
+elif st.session_state.page == 'regulatory':
+    show_regulatory_only_page() # New first assessment page
+elif st.session_state.page == 'motives':
+    show_motives_only_page() # New second assessment page
 elif st.session_state.page == 'chat': 
     show_chat_page()
 elif st.session_state.page == 'review_narrative':
