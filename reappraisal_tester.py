@@ -246,17 +246,29 @@ def parse_llm_json(response_content):
             
         # Ensure all scores are integers/floats and within the 1-9 range
         for key in MOTIVE_SCORE_KEYS:
-            if key not in prediction_scores or not (1 <= float(prediction_scores[key]) <= RATING_SCALE_MAX):
+            # Need to handle potential string scores from LLM
+            score_value = prediction_scores.get(key)
+            if score_value is None:
                 return None
+            try:
+                score_float = float(score_value)
+                if not (1 <= score_float <= RATING_SCALE_MAX):
+                     return None
+            except ValueError:
+                # Value is not convertible to float
+                return None
+
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
         
     except Exception:
+        # Log the error for debugging if needed, but return None to skip invalid runs
+        # print(f"JSON Parsing Error for content: {response_content[:200]}...") 
         return None
 
 
-@st.cache_data(show_spinner=False)
+# *** CRITICAL FIX: Removed st.cache_data to allow for multiple, stochastic runs ***
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
     Executes the LLM N_COTS times to generate a self-consistent prediction.
@@ -274,9 +286,13 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     for i in range(N_COTS):
         st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
         try:
-            # Using st.cache_data means this function must be deterministic, 
-            # so we use LLM's built-in temperature/stochasticity and a simple loop.
+            # Using LLM's built-in temperature/stochasticity
             response = chain.invoke({"event_text": event_text})
+            
+            # --- Added Debugging Aid ---
+            # print(f"Raw response {i+1}: {response.content}")
+            # ---------------------------
+            
             parsed_scores = parse_llm_json(response.content)
             
             if parsed_scores:
@@ -301,7 +317,12 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         # Collect all scores for the current key from valid runs
         scores = [p[key] for p in valid_predictions]
         # Calculate the mean (rounding to the nearest integer as the original scale is 1-9)
-        final_prediction[key] = int(round(sum(scores) / len(scores)))
+        if scores: # Only average if we have scores
+            final_prediction[key] = int(round(sum(scores) / len(scores)))
+        else:
+             # Fallback to a neutral score if a key somehow failed validation (shouldn't happen with robust parsing)
+             final_prediction[key] = 5 
+
 
     st.success(f"✅ Self-Consistency complete. Aggregated result from {len(valid_predictions)} valid CoT runs.")
     return {"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}
@@ -391,7 +412,7 @@ def process_interview_step(llm_instance, interview_history, is_skip=False):
         )
         json_string = response.content.strip()
 
-        # Safely parse JSON output from LLM
+        # Safely parse JSON output from LLM (handling code blocks)
         if json_string.startswith("```json"):
             json_string = json_string.lstrip("```json").rstrip("```")
         elif json_string.startswith("```"):
@@ -423,8 +444,6 @@ def save_data(data):
 
 def show_motives_page():
     st.title("🎯 Initial Assessment: General Profile")
-    
-    # ... (content remains the same) ...
     
     if 'general_motive_scores' not in st.session_state:
         st.session_state.general_motive_scores = {
@@ -549,7 +568,6 @@ def show_chat_page():
         st.rerun()
 
 def show_narrative_review_page():
-    # Function body remains the same
     st.title("📝 Review & Confirm Event Description")
     st.markdown("The system has compiled your interview responses into a single, cohesive narrative. Please review and edit the text to ensure it is **accurate and complete**.")
     
@@ -557,181 +575,6 @@ def show_narrative_review_page():
         st.session_state.final_event_narrative = st.session_state.event_text_synthesized
 
     edited_narrative = st.text_area( 
-        "Your Final, Confirmed Event Narrative:",
-        value=st.session_state.final_event_narrative,
-        height=300
-    ) 
-# --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
-
-INTERVIEW_PROMPT_TEMPLATE = """
-
-You are a Dynamic Interviewer for a psychological study. Your goal is to collect all 10 key pieces of information (CORE QUESTIONS) about a stressful event from the user's responses, but only ask questions that are relevant or missing.
-
-
-Your responses must be conversational and contextual.
-
-
-The user's response history so far is:
-
-{qa_pairs}
-
-
-The set of ALL 10 CORE QUESTIONS is:
-
-{all_questions}
-
-
-Your task is:
-
-1. Analyze the Q&A history to determine which CORE QUESTIONS have been sufficiently covered by the user's answers.
-
-2. **CRITICAL RULE:** **Not all 10 CORE QUESTIONS must be explicitly covered.** Use your best judgment to transition to synthesis when the event description feels rich and complete, or if a remaining question is implicitly answered or clearly non-applicable to the specific event.
-
-3. If the event description is rich and complete (all necessary points covered), set 'status' to "complete".
-
-4. If the description is incomplete, set 'status' to "continue". Select the single most relevant and important *unanswered* question from the list to ask next.
-
-
-Your output MUST be a valid JSON object.
-
-
-JSON Schema:
-
-{{
-
-"status": "continue" | "complete",
-
-"conversational_response": "<A natural, contextual reaction acknowledging the user's last input.>",
-
-"next_question": "<The full text of the next question to ask, or null if status is 'complete'.>",
-
-"final_narrative": "<The cohesive, unified story based on ALL answers. This MUST be written from a first-person perspective (using 'I' and 'my'). Only required if status is 'complete'.>"
-
-}}
-
-
-Provide the JSON output:
-
-"""
-
-# Helper template for manual skip button: synthesize current answers into one narrative.
-
-SYNTHESIS_PROMPT_TEMPLATE = """
-
-The user has ended the interview early. Based on the Q&A history provided below, synthesize all the information into a single, cohesive, narrative summary of the stressful event.
-
-
-**CRITICAL:** Write the summary from a first-person perspective (using 'I' and 'my').
-
-
-Q&A History:
-
-{qa_pairs}
-
-
-Provide the complete, unified narrative summary:
-
-"""
-
-
-
-def process_interview_step(llm_instance, interview_history, is_skip=False):
-
-"""Executes the LLM to manage the conversation flow or synthesize the narrative."""
-
-qa_pairs_formatted = "\n---\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in interview_history])
-
-if is_skip:
-
-# If user clicked skip, force synthesis immediately
-
-prompt = PromptTemplate(input_variables=["qa_pairs"], template=SYNTHESIS_PROMPT_TEMPLATE)
-
-chain = prompt | llm_instance
-
-try:
-
-response = chain.invoke({"qa_pairs": qa_pairs_formatted})
-
-# For manual skip, we generate the narrative directly and wrap it.
-
-return {
-
-"status": "complete",
-
-"conversational_response": "Understood. Thank you for sharing your story so far. I've compiled everything into a single narrative for the next step.",
-
-"next_question": None,
-
-"final_narrative": response.content.strip()
-
-}
-
-except Exception as e:
-
-st.error(f"Error during manual Synthesis: {e}")
-
-return {"status": "error", "conversational_response": "I ran into an issue while compiling your story. Please try submitting the narrative in the next step manually.", "next_question": None, "final_narrative": "ERROR: Could not synthesize story."}
-
-
-
-# Standard dynamic interview flow
-
-all_questions_formatted = "\n".join([f"- {q}" for q in INTERVIEW_QUESTIONS])
-
-prompt = PromptTemplate(
-
-input_variables=["qa_pairs", "all_questions"],
-
-template=INTERVIEW_PROMPT_TEMPLATE
-
-)
-
-chain = prompt | llm_instance
-
-try:
-
-response = chain.invoke(
-
-{
-
-"qa_pairs": qa_pairs_formatted,
-
-"all_questions": all_questions_formatted
-
-}
-
-)
-
-json_string = response.content.strip()
-
-
-if json_string.startswith("```json"):
-
-json_string = json.loads(json_string.lstrip("```json").rstrip("```"), strict=False)
-
-elif json_string.startswith("```"):
-
-json_string = json.loads(json_string.lstrip("```").rstrip("```"), strict=False)
-
-else:
-
-json_string = json.loads(json_string, strict=False) # Attempt simple load
-
-
-result = json_string
-
-return result
-
-except Exception as e:
-
-# Fallback error handling
-
-st.error(f"Error during LLM Interview Processing. Error: {e}")
-
-# Return a safe, basic structure to continue the flow
-
-return {"status": "error", "conversational_response": "I ran into an issue while processing that. Can you please tell me more about what happened?", "next_question": INTERVIEW_QUESTIONS[0], "final_narrative": None} 
         "Your Final, Confirmed Event Narrative:",
         value=st.session_state.final_event_narrative,
         height=300
@@ -747,7 +590,6 @@ return {"status": "error", "conversational_response": "I ran into an issue while
         st.rerun()
 
 def show_situation_rating_page():
-    # Function body remains the same
     st.title("📊 Situation Appraisal: Your Perspective (26 Scores)")
     st.markdown(f"""
     Please rate how **relevant** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX}.
@@ -829,28 +671,43 @@ def show_cross_rating_page():
             llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
             if llm_prediction_result:
+                
+                # --- Map the list-of-dicts format (user input) to the flat score dict (DB required) ---
+                # NOTE: For the human scores, the session state format is a dict of dicts: 
+                # {'Hedonic': {'Promotion': 5, 'Prevention': 5}, ...}
+                # The LLM output is already flat: {'Hedonic_Promotion': 5, ...}
+                
+                # Flatten human scores for consistent DB storage
+                def flatten_scores(score_dict):
+                    flat = {}
+                    for motive, dims in score_dict.items():
+                        for dim, score in dims.items():
+                            flat[f"{motive}_{dim}"] = score
+                    return flat
+
+
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
                     "participant_id": str(uuid.uuid4()), 
                     
-                    # Step 1 Data (26 baseline scores)
-                    "baseline_motive_profile": st.session_state.general_motive_scores,
+                    # Step 1 Data (26 baseline scores - FLATTENED)
+                    "baseline_motive_profile": flatten_scores(st.session_state.general_motive_scores),
                     "baseline_regulatory_focus": st.session_state.reg_focus_scores,
                     
                     # Step 2 Data
                     "interview_qa_history": st.session_state.interview_answers, 
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
                     
-                    # LLM Prediction Data (The LLM's Hypothesis - Self-Consistent 26 scores)
+                    # LLM Prediction Data (The LLM's Hypothesis - Flat 26 scores)
                     "llm_motive_relevance_prediction": llm_prediction_result.get('motive_relevance_prediction'),
                     "llm_n_cots_used": llm_prediction_result.get('n_cots_used'),
                     
-                    # Step 3 Data (Original Author's Target - 26 scores)
-                    "situation_motive_relevance_rating": st.session_state.situation_motive_scores,
+                    # Step 3 Data (Original Author's Target - FLATTENED 26 scores)
+                    "situation_motive_relevance_rating": flatten_scores(st.session_state.situation_motive_scores),
                     
-                    # Step 4 Data (Comparison Target - 26 scores)
+                    # Step 4 Data (Comparison Target - FLATTENED 26 scores)
                     "cross_participant_situation": st.session_state.cross_participant_situation,
-                    "cross_participant_motive_rating": st.session_state.cross_motive_scores,
+                    "cross_participant_motive_rating": flatten_scores(st.session_state.cross_motive_scores),
                 }
                 
                 if save_data(trial_data):
@@ -864,12 +721,12 @@ def show_cross_rating_page():
             st.rerun()
 
 def show_thank_you_page():
-    # Function body remains the same
     st.title("✅ Trial Complete")
     st.success("Your data has been successfully submitted and saved for the study.")
 
     if st.button("Start a New Trial", type="primary"):
         for key in list(st.session_state.keys()):
+            # Clear all session state except secrets
             if key not in ['GEMINI_API_KEY', 'gcp_service_account']:
                 del st.session_state[key]
         st.session_state.page = 'motives'
