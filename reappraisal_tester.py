@@ -390,12 +390,12 @@ def show_motives_page():
             # Promotion Focus
             motive_scores[m['motive']]['Promotion'] = st.slider(
                 f"Promotion Focus: *{m['promotion']}*",
-                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Promotion'], horizontal=True, key=f"gen_{m['motive']}_Promotion"
+                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Promotion'], key=f"gen_{m['motive']}_Promotion"
             )
             # Prevention Focus
             motive_scores[m['motive']]['Prevention'] = st.slider(
                 f"Prevention Focus: *{m['prevention']}*",
-                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Prevention'], horizontal=True, key=f"gen_{m['motive']}_Prevention"
+                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Prevention'], key=f"gen_{m['motive']}_Prevention"
             )
 
         st.markdown("---")
