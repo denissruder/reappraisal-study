@@ -538,7 +538,7 @@ Provide the complete, unified narrative summary, following the CoVe steps. The f
             )
 
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
-            st.session_state.page = 'cross_rating'Self-Consistency
+            st.session_state.page = 'cross_rating'
             st.rerun()
 
 def show_cross_rating_page():
