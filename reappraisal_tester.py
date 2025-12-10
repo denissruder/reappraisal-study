@@ -549,7 +549,7 @@ def show_cross_rating_page():
     # Placeholder for a random situation
     random_situation = """
     I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team.
-    """Self-Consistency
+    """
     
     st.subheader("Situation from Another Participant:")
     with st.container(border=True):
