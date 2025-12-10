@@ -28,6 +28,10 @@ st.markdown("""
     padding-bottom: 5px;
     border-bottom: 1px solid #ddd;
 }
+/* Reduce space between radio options for horizontal layout */
+div[data-testid="stForm"] label {
+    margin-right: 15px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -37,9 +41,8 @@ st.markdown("""
 MODEL_NAME = "gemini-2.5-flash"
 TEMP = 0.8 # Increased temperature for more diverse CoTs
 RATING_SCALE_MAX = 9 
-RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) # [1, 2, 3, 4, 5, 6, 7, 8, 9]
 MIN_NARRATIVE_LENGTH = 100
-N_COTS = 5 # *** Number of Chain-of-Thought runs for Self-Consistency ***
+N_COTS = 5 # *** NEW: Number of Chain-of-Thought runs for Self-Consistency ***
 
 # Comprehensive list of Motives and their Promotion/Prevention framings
 MOTIVES_FULL = [
@@ -113,7 +116,7 @@ CRITICAL: For each of the {len(MOTIVE_NAMES)} core motives, you MUST predict rel
 Your final JSON output must contain **26** key-value pairs (13 Motives * 2 Dimensions).
 """
 
-# FEW-SHOT EXAMPLE for Appraisal Prediction
+# FEW-SHOT EXAMPLE for Motive Prediction
 APPRAISAL_FEW_SHOT_EXAMPLE = f"""
 # FEW-SHOT EXAMPLE: High Competence and Status Relevance
 INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a major project. I feel intense shame and worry about my job."
@@ -365,22 +368,69 @@ def save_data(data):
         return False
 
 
-# --- 4. STREAMLIT PAGE RENDERING FUNCTIONS (No change in structure from V3) ---
+# --- 4. STREAMLIT PAGE RENDERING FUNCTIONS (MODIFIED) ---
 
-def show_motives_page():
-    st.title("🎯 Initial Assessment: General Profile")
+def show_consent_page():
+    """Renders the Letter of Consent page."""
+    st.title("📄 Letter of Consent")
+    st.markdown("""
+    Welcome to the Cognitive Repurposing Study. Before we begin, please review the following information.
+
+    **Purpose:** You will be asked to describe a stressful event and then receive AI-generated guidance designed to help you reframe the situation. The goal is to study how different types of personalization affect the perceived helpfulness of the guidance.
+
+    **Data Collection:** All text input, the guidance you receive, and your final ratings will be stored anonymously in our research database (Firestore). Your identity will not be attached to the data.
+
+    **Risk:** There are no known risks beyond those encountered in daily life. You may stop at any time.
+
+    By clicking 'I Consent,' you agree to participate in this simulated study protocol.
+    """)
+    
+    if st.button("I Consent", type="primary"):
+        st.session_state.page = 'regulatory'
+        st.rerun()
+
+def show_regulatory_only_page():
+    st.title("🎯 Initial Assessment: Regulatory Focus")
     
     # Define the 1-9 radio options
-    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) # [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+
+    if 'reg_focus_scores' not in st.session_state:
+        st.session_state.reg_focus_scores = {item: 5 for item in REG_FOCUS_ITEMS}
+
+    with st.form("regulatory_assessment_form"):
+        st.subheader("Regulatory Focus (General Tendency)")
+        st.markdown(f"Please indicate how true the following {len(REG_FOCUS_ITEMS)} statements are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
+        st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
+        
+        reg_focus_scores = st.session_state.reg_focus_scores
+        for i, item in enumerate(REG_FOCUS_ITEMS):
+            # Item prefix removed, using the statement directly
+            st.session_state.reg_focus_scores[item] = st.radio(
+                f"**{item}**", 
+                options=RADIO_OPTIONS, 
+                index=reg_focus_scores[item] - 1, 
+                horizontal=True, 
+                key=f"reg_focus_{i}"
+            )
+
+        if st.form_submit_button("Next: General Motive Profile", type="primary"):
+            st.session_state.page = 'motives' # Route to motives next
+            st.rerun()
+
+def show_motives_only_page():
+    st.title("🎯 Initial Assessment: General Motive Profile")
+    
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
     if 'general_motive_scores' not in st.session_state:
         st.session_state.general_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
-        st.session_state.reg_focus_scores = {item: 5 for item in REG_FOCUS_ITEMS}
 
     with st.form("initial_assessment_form"):
-        st.subheader("1. General Motive Importance & Focuses")
+        st.subheader("General Motive Importance & Focuses")
         st.markdown(f"""
         Please rate the importance of the following {len(MOTIVES_FULL)} motives to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
         You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
@@ -408,28 +458,13 @@ def show_motives_page():
                 key=f"gen_{m['motive']}_Prevention"
             )
 
-        st.markdown("---")
-        
-        st.subheader("2. Regulatory Focus (General Tendency)")
-        st.markdown(f"Please indicate how true the following {len(REG_FOCUS_ITEMS)} statements are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
-        st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
-        
-        reg_focus_scores = st.session_state.reg_focus_scores
-        for i, item in enumerate(REG_FOCUS_ITEMS):
-            # Regulatory Focus (NOW RADIO BUTTONS)
-            st.session_state.reg_focus_scores[item] = st.radio(
-                f"Item {i+1}: {item}",
-                options=RADIO_OPTIONS, 
-                index=reg_focus_scores[item] - 1, 
-                horizontal=True, 
-                key=f"reg_focus_{i}"
-            )
-
         if st.form_submit_button("Next: Start Interview", type="primary"):
-            st.session_state.page = 'chat'
+            st.session_state.page = 'chat' # Route to chat next
             st.rerun()
 
+
 def show_chat_page():
+    # Function body remains the same
     st.header("🗣️ Event Interview")
     st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context.")
 
@@ -507,28 +542,14 @@ def show_narrative_review_page():
 def show_situation_rating_page():
     st.title("📊 Situation Appraisal: Your Perspective (26 Scores)")
     st.markdown(f"""
-    Please rate how **relevant** each of the following motives and their focuses was to the **event you just described**CRITICAL RULES (CoVe Check):**
-1. Write the summary from a first-person perspective (using 'I' and 'my').
-2. Do NOT offer any advice, interpretation, or psychological framing (V2 Check).
-3. Ensure the core event trigger, outcome, and unpleasant emotion are included (V1 Check).
-
-# Chain-of-Verification (CoVe) Protocol for Synthesis:
-1. **Initial Draft:** Generate the narrative summary. Enclose it in <DRAFT> tags.
-2. **Verification Check (Internal):** Answer the following two verification questions:
-    a) V1 (Completeness): Are the main event trigger, outcome, and core emotion included in the draft? (Yes/No)
-    b) V2 (Objectivity): Does the draft contain any language that judges, advises, or suggests coping strategies? (Yes/No)
-3. **Final Revision:** If V1 is 'No' OR if V2 is 'Yes', revise the description to fix the issue. If both checks pass, use the draft.
-4. **Final Output:** Present ONLY the final, verified, and revised description.
-
-Q&A History:
-{qa_pairs}
-
-Provide the complete, unified narrative summary, following the CoVe steps. The final, verified narrative must be wrapped in a <FINAL_NARRATIVE> tag.
-** on a scale of 1 to {RATING_SCALE_MAX}.
+    Please rate how **relevant** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX}.
     
     **1 = Not Relevant At All** | **{RATING_SCALE_MAX} = Extremely Relevant** (The situation strongly helped OR hindered this motive/focus.)
     """)
     
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+
     if 'situation_motive_scores' not in st.session_state:
         st.session_state.situation_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
@@ -540,15 +561,21 @@ Provide the complete, unified narrative summary, following the CoVe steps. The f
         for m in MOTIVES_FULL:
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus Relevance
-            situation_scores[m['motive']]['Promotion'] = st.slider(
+            # Promotion Focus Relevance (NOW RADIO BUTTONS)
+            situation_scores[m['motive']]['Promotion'] = st.radio(
                 f"Relevance to Promotion Focus: *{m['promotion']}*",
-                1, RATING_SCALE_MAX, situation_scores[m['motive']]['Promotion'], horizontal=True, key=f"sit_{m['motive']}_Promotion"
+                options=RADIO_OPTIONS, 
+                index=situation_scores[m['motive']]['Promotion'] - 1, 
+                horizontal=True, 
+                key=f"sit_{m['motive']}_Promotion"
             )
-            # Prevention Focus Relevance
-            situation_scores[m['motive']]['Prevention'] = st.slider(
+            # Prevention Focus Relevance (NOW RADIO BUTTONS)
+            situation_scores[m['motive']]['Prevention'] = st.radio(
                 f"Relevance to Prevention Focus: *{m['prevention']}*",
-                1, RATING_SCALE_MAX, situation_scores[m['motive']]['Prevention'], horizontal=True, key=f"sit_{m['motive']}_Prevention"
+                options=RADIO_OPTIONS, 
+                index=situation_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"sit_{m['motive']}_Prevention"
             )
 
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
@@ -569,6 +596,9 @@ def show_cross_rating_page():
     with st.container(border=True):
         st.info(random_situation)
 
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+    
     if 'cross_motive_scores' not in st.session_state:
         st.session_state.cross_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
@@ -584,15 +614,21 @@ def show_cross_rating_page():
         for m in MOTIVES_FULL:
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus Relevance
-            cross_scores[m['motive']]['Promotion'] = st.slider(
+            # Promotion Focus Relevance (NOW RADIO BUTTONS)
+            cross_scores[m['motive']]['Promotion'] = st.radio(
                 f"Relevance to Promotion Focus: *{m['promotion']}* (The author's perspective)",
-                1, RATING_SCALE_MAX, cross_scores[m['motive']]['Promotion'], horizontal=True, key=f"cross_{m['motive']}_Promotion"
+                options=RADIO_OPTIONS, 
+                index=cross_scores[m['motive']]['Promotion'] - 1, 
+                horizontal=True, 
+                key=f"cross_{m['motive']}_Promotion"
             )
-            # Prevention Focus Relevance
-            cross_scores[m['motive']]['Prevention'] = st.slider(
+            # Prevention Focus Relevance (NOW RADIO BUTTONS)
+            cross_scores[m['motive']]['Prevention'] = st.radio(
                 f"Relevance to Prevention Focus: *{m['prevention']}* (The author's perspective)",
-                1, RATING_SCALE_MAX, cross_scores[m['motive']]['Prevention'], horizontal=True, key=f"cross_{m['motive']}_Prevention"
+                options=RADIO_OPTIONS, 
+                index=cross_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"cross_{m['motive']}_Prevention"
             )
         
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
@@ -646,18 +682,22 @@ def show_thank_you_page():
         for key in list(st.session_state.keys()):
             if key not in ['GEMINI_API_KEY', 'gcp_service_account']:
                 del st.session_state[key]
-        st.session_state.page = 'motives'
+        st.session_state.page = 'consent' # Route back to the start
         st.rerun()
 
 
 # --- 5. MAIN APP EXECUTION ---
 
 if 'page' not in st.session_state:
-    st.session_state.page = 'motives'
+    st.session_state.page = 'consent' # Start at consent page
 
 # Page routing logic
-if st.session_state.page == 'motives':
-    show_motives_page()
+if st.session_state.page == 'consent':
+    show_consent_page()
+elif st.session_state.page == 'regulatory':
+    show_regulatory_only_page() # New first assessment page
+elif st.session_state.page == 'motives':
+    show_motives_only_page() # New second assessment page
 elif st.session_state.page == 'chat': 
     show_chat_page()
 elif st.session_state.page == 'review_narrative':
