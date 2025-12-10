@@ -37,8 +37,9 @@ st.markdown("""
 MODEL_NAME = "gemini-2.5-flash"
 TEMP = 0.8 # Increased temperature for more diverse CoTs
 RATING_SCALE_MAX = 9 
+RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) # [1, 2, 3, 4, 5, 6, 7, 8, 9]
 MIN_NARRATIVE_LENGTH = 100
-N_COTS = 5 # *** NEW: Number of Chain-of-Thought runs for Self-Consistency ***
+N_COTS = 5 # *** Number of Chain-of-Thought runs for Self-Consistency ***
 
 # Comprehensive list of Motives and their Promotion/Prevention framings
 MOTIVES_FULL = [
@@ -369,6 +370,9 @@ def save_data(data):
 def show_motives_page():
     st.title("🎯 Initial Assessment: General Profile")
     
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) # [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
     if 'general_motive_scores' not in st.session_state:
         st.session_state.general_motive_scores = {
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
@@ -387,15 +391,21 @@ def show_motives_page():
         for m in MOTIVES_FULL:
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus
-            motive_scores[m['motive']]['Promotion'] = st.slider(
+            # Promotion Focus (NOW RADIO BUTTONS)
+            motive_scores[m['motive']]['Promotion'] = st.radio(
                 f"Promotion Focus: *{m['promotion']}*",
-                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Promotion'], key=f"gen_{m['motive']}_Promotion"
+                options=RADIO_OPTIONS, 
+                index=motive_scores[m['motive']]['Promotion'] - 1, 
+                horizontal=True, 
+                key=f"gen_{m['motive']}_Promotion"
             )
-            # Prevention Focus
-            motive_scores[m['motive']]['Prevention'] = st.slider(
+            # Prevention Focus (NOW RADIO BUTTONS)
+            motive_scores[m['motive']]['Prevention'] = st.radio(
                 f"Prevention Focus: *{m['prevention']}*",
-                1, RATING_SCALE_MAX, motive_scores[m['motive']]['Prevention'], key=f"gen_{m['motive']}_Prevention"
+                options=RADIO_OPTIONS, 
+                index=motive_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"gen_{m['motive']}_Prevention"
             )
 
         st.markdown("---")
@@ -406,9 +416,13 @@ def show_motives_page():
         
         reg_focus_scores = st.session_state.reg_focus_scores
         for i, item in enumerate(REG_FOCUS_ITEMS):
-            st.session_state.reg_focus_scores[item] = st.slider(
+            # Regulatory Focus (NOW RADIO BUTTONS)
+            st.session_state.reg_focus_scores[item] = st.radio(
                 f"Item {i+1}: {item}",
-                1, RATING_SCALE_MAX, reg_focus_scores[item], horizontal=True, key=f"reg_focus_{i}"
+                options=RADIO_OPTIONS, 
+                index=reg_focus_scores[item] - 1, 
+                horizontal=True, 
+                key=f"reg_focus_{i}"
             )
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
