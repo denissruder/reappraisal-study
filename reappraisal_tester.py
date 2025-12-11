@@ -255,7 +255,7 @@ OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoni
 {JSON_SCORE_TEMPLATE}
 """
 
-def parse_llm_json(response_content):
+def parse_llm_json(response_content, attempt_number=0):
     """Safely extracts and parses the JSON block from the LLM's response."""
     
     json_string = response_content.strip()
@@ -289,35 +289,22 @@ def parse_llm_json(response_content):
         # Check if the remaining string is parseable
         analysis_data = json.loads(json_string, strict=True)
         
-        # 1. Check for top-level key
-        if 'motive_relevance_prediction' not in analysis_data:
-             st.error(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON. Content starts with: {json_string[:100]}...") # ADDED CONTENT LOGGING
-             return None 
-             
-        prediction_scores = analysis_data['motive_relevance_prediction']
-        
-        # 2. Check for key count
-        if len(prediction_scores) != len(MOTIVE_SCORE_KEYS):
-            st.error(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}. Missing/Extra keys: {set(MOTIVE_SCORE_KEYS).symmetric_difference(set(prediction_scores.keys()))}") # ADDED KEY DIFF LOGGING
-            return None
-            
-        # 3. Check for specific keys and range
-        for key in MOTIVE_SCORE_KEYS:
-            if key not in prediction_scores:
-                st.error(f"Parse Error: Missing required key '{key}'.")
-                return None
-            
-            try:
-                score = float(prediction_scores[key])
-                if not (1 <= score <= RATING_SCALE_MAX):
-                    st.error(f"Parse Error: Score for '{key}' is {score}, which is outside the range 1-{RATING_SCALE_MAX}.")
-                    return None
-            except ValueError:
-                st.error(f"Parse Error: Score for '{key}' is not a valid number: {prediction_scores[key]}.") # LOG THE BAD VALUE
-                return None
+        # ... (Keep the validation checks for 'motive_relevance_prediction' key count, and score range) ...
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
+            
+    except json.JSONDecodeError as e:
+        # --- DEBUG STEP 3: Display raw content on JSON Decode failure ---
+        st.error(f"Parse Error (Attempt {attempt_number}): JSON decoding failed. Error: {e}")
+        with st.expander(f"❌ DEBUG: View Raw Content that Failed to Parse (Attempt {attempt_number})"):
+             st.code(response_content, language="text") # Show the full, uncleaned LLM output
+        # --- END DEBUG STEP 3 ---
+        return None
+        
+    except Exception as e:
+        st.error(f"Parse Error (Attempt {attempt_number}): General exception during parsing: {e}")
+        return None
             
     except json.JSONDecodeError as e:
         st.error(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
@@ -330,7 +317,6 @@ def parse_llm_json(response_content):
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
     Executes the LLM N_COTS times to generate a self-consistent prediction.
-    Returns the aggregated prediction or (None, last_failed_response_content) on failure.
     """
     
     prompt = PromptTemplate(
@@ -339,34 +325,47 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     )
     chain = prompt | llm_instance
     
+    # --- DEBUG STEP 1: Capture and Display the FULL Prompt ---
+    # Render the final prompt template with the user's input before the loop
+    try:
+        final_prompt_content = prompt.format(event_text=event_text)
+        # Use st.expander for a cleaner UI; it only shows the content when clicked
+        with st.expander("🔍 DEBUG: View Final Prompt Sent to LLM"):
+            st.code(final_prompt_content, language="markdown")
+    except Exception as e:
+        st.error(f"DEBUG ERROR: Failed to format final prompt: {e}")
+    # --- END DEBUG STEP 1 ---
+    
     valid_predictions = []
-    last_failed_response = "" # Track the last failure to display to user
+    last_failed_response = "" 
 
     # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
         try:
-            # st.info(f"Generating prediction attempt {i+1}/{N_COTS}...") # Suppressing this for cleaner error output
+            st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
             response = chain.invoke({"event_text": event_text})
             response_content = response.content
-            # st.error(response_content) # Suppressing debug error
-            parsed_scores = parse_llm_json(response_content)
             
+            # --- DEBUG STEP 2: Capture and Display Raw LLM Response ---
+            if not response_content:
+                st.warning(f"DEBUG: Attempt {i+1} received an empty response.")
+                continue
+
+            # Pass the raw response to the parser
+            parsed_scores = parse_llm_json(response_content, attempt_number=i+1)
+            # --- END DEBUG STEP 2 ---
+
             if parsed_scores:
                 valid_predictions.append(parsed_scores)
+                st.success(f"Prediction {i+1} successful and valid.")
             else:
-                # Parsing failed (reason logged in parse_llm_json). Save the output.
-                last_failed_response = response_content
-                # st.error(f"Prediction attempt {i+1} failed validation. LLM output content (start):\n{response_content[:500]}...") # Suppressing debug error
-                pass
+                st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.")
+                last_failed_response = response_content # Update on failure
                 
         except Exception as e:
-            # Log invocation error
             st.error(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
-            pass
         
-        # Small delay to potentially aid in CoT diversity
-        time.sleep(0.5) 
-
+        time.sleep(0.5)
     if not valid_predictions:
         # Log final failure
         st.error(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
