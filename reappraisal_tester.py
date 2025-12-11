@@ -4,6 +4,7 @@ import json
 import datetime
 import uuid
 import time
+import random
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
@@ -90,6 +91,10 @@ REG_FOCUS_ITEMS = [
     "Overall, I am more oriented toward achieving success than preventing failure"
 ]
 
+# Indices (0-based) for grouping Regulatory Focus Items (9 Promotion, 9 Prevention)
+PROMOTION_ITEMS_0_BASED = [2, 4, 5, 7, 11, 13, 15, 16, 17]
+PREVENTION_ITEMS_0_BASED = [0, 1, 3, 6, 8, 9, 10, 12, 14]
+
 # Guided Interview Questions (8 items)
 INTERVIEW_QUESTIONS = [
     "What happened? Describe a recent emotionally unpleasant event.",
@@ -131,21 +136,7 @@ INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a
 3. **Physical Analysis:** No direct physical impact. All scores low (1).
 </REASONING>
 OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
-{{"motive_relevance_prediction": {{
-"Hedonic_Promotion": 4, "Hedonic_Prevention": 4,
-"Physical_Promotion": 1, "Physical_Prevention": 1,
-"Wealth_Promotion": 2, "Wealth_Prevention": 3,
-"Predictability_Promotion": 6, "Predictability_Prevention": 7,
-"Competence_Promotion": 9, "Competence_Prevention": 9,
-"Growth_Promotion": 5, "Growth_Prevention": 4,
-"Autonomy_Promotion": 3, "Autonomy_Prevention": 5,
-"Relatedness_Promotion": 4, "Relatedness_Prevention": 6,
-"Acceptance_Promotion": 7, "Acceptance_Prevention": 8,
-"Status_Promotion": 7, "Status_Prevention": 8,
-"Responsibility_Promotion": 7, "Responsibility_Prevention": 9,
-"Meaning_Promotion": 3, "Meaning_Prevention": 3,
-"Instrumental_Promotion": 7, "Instrumental_Prevention": 8
-}}}}
+{{"motive_relevance_prediction": {{"Hedonic_Promotion": 4, "Hedonic_Prevention": 4, "Physical_Promotion": 1, "Physical_Prevention": 1, "Wealth_Promotion": 2, "Wealth_Prevention": 3, "Predictability_Promotion": 6, "Predictability_Prevention": 7, "Competence_Promotion": 9, "Competence_Prevention": 9, "Growth_Promotion": 5, "Growth_Prevention": 4, "Autonomy_Promotion": 3, "Autonomy_Prevention": 5, "Relatedness_Promotion": 4, "Relatedness_Prevention": 6, "Acceptance_Promotion": 7, "Acceptance_Prevention": 8, "Status_Promotion": 7, "Status_Prevention": 8, "Responsibility_Promotion": 7, "Responsibility_Prevention": 9, "Meaning_Promotion": 3, "Meaning_Prevention": 3, "Instrumental_Promotion": 7, "Instrumental_Prevention": 8}}}}
 """
 
 # --- 1. LLM Initialization and Database Setup ---
@@ -213,6 +204,7 @@ def get_random_story_from_db():
 # --- 2. LLM LOGIC FUNCTIONS (Self-Consistency/Multiple CoTs) ---
 
 # --- LLM APPRAISAL PREDICTION TEMPLATE ---
+# FIX: Consolidated into one f-string and properly double-escaped all literal braces in the final JSON template to prevent LangChain from reading them as variables.
 APPRAISAL_PREDICTION_TEMPLATE = f"""
 # ROLE: APPRAISAL ANALYST (Expert Psychological Assessor)
 You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This prediction must be highly granular, adhering to the 13 Motives and their 2 sub-dimensions (Promotion/Prevention).
@@ -240,31 +232,14 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-""" + """
 OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
-{{"motive_relevance_prediction": {{
-"Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE,
-"Physical_Promotion": SCORE, "Physical_Prevention": SCORE,
-"Wealth_Promotion": SCORE, "Wealth_Prevention": SCORE,
-"Predictability_Promotion": SCORE, "Predictability_Prevention": SCORE,
-"Competence_Promotion": SCORE, "Competence_Prevention": SCORE,
-"Growth_Promotion": SCORE, "Growth_Prevention": SCORE,
-"Autonomy_Promotion": SCORE, "Autonomy_Prevention": SCORE,
-"Relatedness_Promotion": SCORE, "Relatedness_Prevention": SCORE,
-"Acceptance_Promotion": SCORE, "Acceptance_Prevention": SCORE,
-"Status_Promotion": SCORE, "Status_Prevention": SCORE,
-"Responsibility_Promotion": SCORE, "Responsibility_Prevention": SCORE,
-"Meaning_Promotion": SCORE, "Meaning_Prevention": SCORE,
-"Instrumental_Promotion": SCORE, "Instrumental_Prevention": SCORE
-}}}}
+{{"motive_relevance_prediction": {{"Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE, "Physical_Promotion": SCORE, "Physical_Prevention": SCORE, "Wealth_Promotion": SCORE, "Wealth_Prevention": SCORE, "Predictability_Promotion": SCORE, "Predictability_Prevention": SCORE, "Competence_Promotion": SCORE, "Competence_Prevention": SCORE, "Growth_Promotion": SCORE, "Growth_Prevention": SCORE, "Autonomy_Promotion": SCORE, "Autonomy_Prevention": SCORE, "Relatedness_Promotion": SCORE, "Relatedness_Prevention": SCORE, "Acceptance_Promotion": SCORE, "Acceptance_Prevention": SCORE, "Status_Promotion": SCORE, "Status_Prevention": SCORE, "Responsibility_Promotion": SCORE, "Responsibility_Prevention": SCORE, "Meaning_Promotion": SCORE, "Meaning_Prevention": SCORE, "Instrumental_Promotion": SCORE, "Instrumental_Prevention": SCORE}}}}
 """
 
 def parse_llm_json(response_content):
     """Safely extracts and parses the JSON block from the LLM's response."""
     
     json_string = response_content.strip()
-    
-    st.warning(f"Raw JSON String (for debugging): {json_string[:500]}")
     
     # --- NEW: Improved Heuristics for JSON Extraction ---
     
@@ -351,9 +326,10 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
         try:
+            # st.info(f"Generating prediction attempt {i+1}/{N_COTS}...") # Suppressing this for cleaner error output
             response = chain.invoke({"event_text": event_text})
             response_content = response.content
-            st.error(response_content)
+            # st.error(response_content) # Suppressing debug error
             parsed_scores = parse_llm_json(response_content)
             
             if parsed_scores:
@@ -361,7 +337,7 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
             else:
                 # Parsing failed (reason logged in parse_llm_json). Save the output.
                 last_failed_response = response_content
-                st.error(f"Prediction attempt {i+1} failed validation. LLM output content (start):\n{response_content[:500]}...")
+                # st.error(f"Prediction attempt {i+1} failed validation. LLM output content (start):\n{response_content[:500]}...") # Suppressing debug error
                 pass
                 
         except Exception as e:
@@ -540,15 +516,31 @@ def show_regulatory_only_page():
         st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
         
         reg_focus_scores = st.session_state.reg_focus_scores
-        for i, item in enumerate(REG_FOCUS_ITEMS):
-            # Item prefix removed, using the statement directly
+        
+        # --- PREVENTION FOCUS ITEMS (Avoiding negative outcomes) ---
+        st.markdown("#### 1. Prevention Focus (Focus on obligations, safety, and avoiding negative outcomes)")
+        for i in PREVENTION_ITEMS_0_BASED:
+            item = REG_FOCUS_ITEMS[i]
             st.session_state.reg_focus_scores[item] = st.radio(
-                f"**{item}**", 
+                f"**{i+1}.** {item}", 
                 options=RADIO_OPTIONS, 
                 index=reg_focus_scores[item] - 1, 
                 horizontal=True, 
                 key=f"reg_focus_{i}"
             )
+            
+        # --- PROMOTION FOCUS ITEMS (Achieving positive outcomes) ---
+        st.markdown("#### 2. Promotion Focus (Focus on hopes, achievements, and positive outcomes)")
+        for i in PROMOTION_ITEMS_0_BASED:
+            item = REG_FOCUS_ITEMS[i]
+            st.session_state.reg_focus_scores[item] = st.radio(
+                f"**{i+1}.** {item}", 
+                options=RADIO_OPTIONS, 
+                index=reg_focus_scores[item] - 1, 
+                horizontal=True, 
+                key=f"reg_focus_{i}"
+            )
+
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
             st.session_state.page = 'motives' # Route to motives next
