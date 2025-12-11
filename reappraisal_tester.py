@@ -242,11 +242,11 @@ Begin the analysis below.
 
 **CRITICAL:** Provide the JSON output **ONLY** wrapped in ```json ... ``` tags (No other text should follow the </REASONING> tag):
 ```json
-{
-"motive_relevance_prediction": {
+{{
+"motive_relevance_prediction": {{
 // ... 26 scores here
-}
-}
+}}
+}}
 """
 
 def parse_llm_json(response_content):
