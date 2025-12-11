@@ -715,7 +715,7 @@ def show_cross_rating_page():
     st.title("👥 Cross-Participant Appraisal (26 Scores)")
     st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
 
-    # --- MODIFIED: Fetch a random story from the DB ---
+    # --- Fetch a random story from the DB ---
     random_situation = get_random_story_from_db()
     
     st.subheader("Situation from Another Participant:")
@@ -760,11 +760,9 @@ def show_cross_rating_page():
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
             st.session_state.cross_participant_situation = random_situation
             
-            # --- MODIFIED: Run LLM Prediction Silently and Early ---
-            # We use a silent spinner to hide the "Self-Consistency in Progress" phase
-            # while the actual prediction runs in the background.
+            # --- Run LLM Prediction Silently and Early ---
             llm_prediction_result = None
-            with st.spinner("Finalizing study submission..."):
+            with st.spinner("Finalizing study submission (Running system checks in background)..."):
                  # The function itself has been modified to remove internal st.info/st.success calls.
                  llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
@@ -798,7 +796,7 @@ def show_cross_rating_page():
                 else:
                     return # Keep user on the page if save failed
             else:
-                 st.error("Submission failed. The system was unable to generate a valid prediction.")
+                 st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. Please try again, or check the console for detailed LLM parsing errors.")
                  return
             
             st.rerun()
