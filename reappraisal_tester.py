@@ -260,73 +260,39 @@ OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoni
 
 def parse_llm_json(response_content):
     """Safely extracts and parses the JSON block from the LLM's response."""
-    json_string = response_content.strip()
-    
-    # --- NEW: Improved Heuristics for JSON Extraction ---
-    
-    # 1. Prioritize stripping markdown code blocks (```json ... ```)
-    if json_string.startswith("```"):
-        # Find the first and last triple-backtick markers
-        start_index = json_string.find("```")
-        end_index = json_string.rfind("```")
-        
-        if start_index != -1 and end_index != -1 and start_index < end_index:
-            json_string = json_string[start_index + 3:end_index].strip()
-            # Remove optional language specifier (e.g., 'json')
-            if json_string.lower().startswith('json'):
-                 json_string = json_string[4:].strip()
-
-    # 2. Fallback: Find the last opening brace '{' and assume JSON starts there
-    # This is necessary for responses that omit the markdown block wrappers
-    if not (json_string.startswith("{") and json_string.endswith("}")):
-         last_open_brace = json_string.rfind("{")
-         if last_open_brace != -1:
-             json_string = json_string[last_open_brace:].strip()
-             # Attempt to clean up trailing text if the JSON object ends early
-             last_close_brace = json_string.rfind("}")
-             if last_close_brace != -1 and last_close_brace < len(json_string) - 1:
-                  json_string = json_string[:last_close_brace + 1]
-
-
     try:
-        # Check if the remaining string is parseable
+        json_string = response_content.strip()
+        
+        # Heuristics to find the JSON start and end
+        if json_string.rfind("{") != -1:
+            json_string = json_string[json_string.rfind("{"):].strip()
+        
+        if json_string.startswith("```json"):
+            json_string = json_string.lstrip("```json").rstrip("```")
+        elif json_string.startswith("```"):
+            json_string = json_string.lstrip("```").rstrip("```")
+
         analysis_data = json.loads(json_string, strict=False)
         
-        # 1. Check for top-level key
         if 'motive_relevance_prediction' not in analysis_data:
-             st.error(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON. Content starts with: {json_string[:100]}...") # ADDED CONTENT LOGGING
-             return None 
+             return None # Missing required top-level key
              
         prediction_scores = analysis_data['motive_relevance_prediction']
         
-        # 2. Check for key count
+        # Validate that we have the correct number of keys (26)
         if len(prediction_scores) != len(MOTIVE_SCORE_KEYS):
-            st.error(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}. Missing/Extra keys: {set(MOTIVE_SCORE_KEYS).symmetric_difference(set(prediction_scores.keys()))}") # ADDED KEY DIFF LOGGING
             return None
             
-        # 3. Check for specific keys and range
+        # Ensure all scores are integers/floats and within the 1-9 range
         for key in MOTIVE_SCORE_KEYS:
-            if key not in prediction_scores:
-                st.error(f"Parse Error: Missing required key '{key}'.")
-                return None
-            
-            try:
-                score = float(prediction_scores[key])
-                if not (1 <= score <= RATING_SCALE_MAX):
-                    st.error(f"Parse Error: Score for '{key}' is {score}, which is outside the range 1-{RATING_SCALE_MAX}.")
-                    return None
-            except ValueError:
-                st.error(f"Parse Error: Score for '{key}' is not a valid number: {prediction_scores[key]}.") # LOG THE BAD VALUE
+            # Safely check key existence and range constraint
+            if key not in prediction_scores or not (1 <= float(prediction_scores[key]) <= RATING_SCALE_MAX):
                 return None
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
-            
-    except json.JSONDecodeError as e:
-        st.error(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
-        return None
-    except Exception as e:
-        st.error(f"Parse Error: General exception during parsing: {e}")
+        
+    except Exception:
         return None
         
 @st.cache_data(show_spinner=False)
@@ -350,6 +316,7 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         try:
             response = chain.invoke({"event_text": event_text})
             response_content = response.content
+            st.error(response_content)
             parsed_scores = parse_llm_json(response_content)
             
             if parsed_scores:
