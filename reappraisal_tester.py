@@ -243,9 +243,9 @@ Begin the analysis below.
 **CRITICAL:** Provide the JSON output **ONLY** wrapped in ```json ... ``` tags (...):
 ```json
 {{
-"motive_relevance_prediction": {{
+"motive_relevance_prediction": \{\{  
 // ... 26 scores here
-}}
+\}\}                                
 }}
 """
 
