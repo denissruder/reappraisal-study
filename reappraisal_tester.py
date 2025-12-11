@@ -710,27 +710,7 @@ def show_situation_rating_page():
             st.session_state.page = 'cross_rating'
             st.rerun()
 
-def show_cross_rating_page():
-    """Renders the cross-participant rating task (Step 4) and triggers the Self-Consistent LLM prediction (Step 5)."""
-    st.title("👥 Cross-Participant Appraisal (26 Scores)")
-    st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
-
-    # --- Fetch a random story from the DB ---
-    random_situation = get_random_story_from_db()
-    
-    st.subheader("Situation from Another Participant:")
-    with st.container(border=True):
-        st.info(random_situation)
-
-    # Define the 1-9 radio options
-    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
-    
-    if 'cross_motive_scores' not in st.session_state:
-        st.session_state.cross_motive_scores = {
-            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
-        }
-
-    with st.form("cross_rating_form"):
+  with st.form("cross_rating_form"):
         st.markdown(f"""
         Please rate the relevance of the situation above on a scale of 1 to {RATING_SCALE_MAX}, 
         based on what you think the **original author felt** (their perspective). You must provide **two scores** for each motive.
@@ -745,9 +725,26 @@ def show_cross_rating_page():
                 f"Relevance to Promotion Focus: *{m['promotion']}* (The author's perspective)",
                 options=RADIO_OPTIONS, 
                 index=cross_scores[m['motive']]['Promotion'] - 1, 
-                horizontal=True, This is usually a parsing error (the model didn't put the JSON in the right format) or a validation error (the scores weren't integers between 1 and 9).
+                horizontal=True, 
+                key=f"cross_{m['motive']}_Promotion"
             )
-            with st.spinner("Finalizing study submission (Running system checks in background)..."):
+            # Prevention Focus Relevance (NOW RADIO BUTTONS)
+            cross_scores[m['motive']]['Prevention'] = st.radio(
+                f"Relevance to Prevention Focus: *{m['prevention']}* (The author's perspective)",
+                options=RADIO_OPTIONS, 
+                index=cross_scores[m['motive']]['Prevention'] - 1, 
+                horizontal=True, 
+                key=f"cross_{m['motive']}_Prevention"
+            )
+        
+        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
+            st.session_state.cross_participant_situation = random_situation
+            
+            # --- MODIFIED: Run LLM Prediction Silently and Early ---
+            # We use a silent spinner to hide the "Self-Consistency in Progress" phase
+            # while the actual prediction runs in the background.
+            llm_prediction_result = None
+            with st.spinner("Finalizing study submission..."):
                  # The function itself has been modified to remove internal st.info/st.success calls.
                  llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
@@ -781,7 +778,7 @@ def show_cross_rating_page():
                 else:
                     return # Keep user on the page if save failed
             else:
-                 st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. Please try again, or check the console for detailed LLM parsing errors.")
+                 st.error("Submission failed. The system was unable to generate a valid prediction.")
                  return
             
             st.rerun()
