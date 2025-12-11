@@ -131,7 +131,8 @@ INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a
 3. **Physical Analysis:** No direct physical impact. All scores low (1).
 </REASONING>
 OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
-{{"motive_relevance_prediction": {{
+{{{{
+"motive_relevance_prediction": {{{{
 "Hedonic_Promotion": 4, "Hedonic_Prevention": 4,
 "Physical_Promotion": 1, "Physical_Prevention": 1,
 "Wealth_Promotion": 2, "Wealth_Prevention": 3,
@@ -145,6 +146,7 @@ OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoni
 "Responsibility_Promotion": 7, "Responsibility_Prevention": 9,
 "Meaning_Promotion": 3, "Meaning_Prevention": 3,
 "Instrumental_Promotion": 7, "Instrumental_Prevention": 8
+}}}}
 }}}}
 """
 
