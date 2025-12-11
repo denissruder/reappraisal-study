@@ -186,6 +186,30 @@ def get_firestore_client():
 db = get_firestore_client()
 COLLECTION_NAME = "version_a_appraisal_trials_v4"
 
+# --- NEW: Function to fetch a random story from the DB ---
+@st.cache_data(ttl=600) # Cache for 10 minutes to avoid hitting DB too often
+def get_random_story_from_db():
+    """Fetches a random 'confirmed_event_narrative' from the Firestore collection."""
+    try:
+        # Fetch up to 100 documents (adjust limit if needed for a very large collection)
+        # We only need the 'confirmed_event_narrative' field.
+        docs = db.collection(COLLECTION_NAME).select(['confirmed_event_narrative']).limit(100).get()
+        
+        stories = [
+            doc.get('confirmed_event_narrative')
+            for doc in docs
+            if doc.get('confirmed_event_narrative') and len(doc.get('confirmed_event_narrative')) >= MIN_NARRATIVE_LENGTH
+        ]
+        
+        if stories:
+            return random.choice(stories)
+        else:
+            return "No complete event narratives found in the database. Using a fallback placeholder."
+            
+    except Exception as e:
+        st.warning(f"Failed to fetch random story from database: {e}. Using a fallback placeholder.")
+        return "Database fetch failed. Placeholder: I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team."
+
 # --- 2. LLM LOGIC FUNCTIONS (Self-Consistency/Multiple CoTs) ---
 
 # --- LLM APPRAISAL PREDICTION TEMPLATE ---
@@ -261,6 +285,7 @@ def parse_llm_json(response_content):
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
     Executes the LLM N_COTS times to generate a self-consistent prediction.
+    *** MODIFIED: Removed all st.info/st.success/st.error calls to hide progress. ***
     """
     
     prompt = PromptTemplate(
@@ -273,7 +298,7 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     
     # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
-        st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
+        # st.info(f"Generating prediction attempt {i+1}/{N_COTS}...") # REMOVED
         try:
             # Using st.cache_data means this function must be deterministic, 
             # so we use LLM's built-in temperature/stochasticity and a simple loop.
@@ -282,18 +307,20 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
             
             if parsed_scores:
                 valid_predictions.append(parsed_scores)
-                st.success(f"Prediction {i+1} successful and valid.")
+                # st.success(f"Prediction {i+1} successful and valid.") # REMOVED
             else:
-                st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.")
+                # st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.") # REMOVED
+                pass
                 
-        except Exception as e:
-            st.error(f"Error during LLM Appraisal Prediction run {i+1}: {e}")
+        except Exception:
+            # st.error(f"Error during LLM Appraisal Prediction run {i+1}: {e}") # REMOVED
+            pass
         
         # Small delay to potentially aid in CoT diversity
         time.sleep(0.5) 
 
     if not valid_predictions:
-        st.error(f"All {N_COTS} LLM attempts failed to produce a valid prediction. Cannot proceed.")
+        # st.error(f"All {N_COTS} LLM attempts failed to produce a valid prediction. Cannot proceed.") # REMOVED
         return None
 
     # Aggregation step (Self-Consistency)
@@ -304,9 +331,8 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         # Calculate the mean (rounding to the nearest integer as the original scale is 1-9)
         final_prediction[key] = int(round(sum(scores) / len(scores)))
 
-    st.success(f"✅ Self-Consistency complete. Aggregated result from {len(valid_predictions)} valid CoT runs.")
+    # st.success(f"✅ Self-Consistency complete. Aggregated result from {len(valid_predictions)} valid CoT runs.") # REMOVED
     return {"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}
-
 
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
@@ -666,10 +692,8 @@ def show_cross_rating_page():
     st.title("👥 Cross-Participant Appraisal (26 Scores)")
     st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
 
-    # Placeholder for a random situation
-    random_situation = """
-    I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team.
-    """
+    # --- MODIFIED: Fetch a random story from the DB ---
+    random_situation = get_random_story_from_db()
     
     st.subheader("Situation from Another Participant:")
     with st.container(border=True):
@@ -713,9 +737,13 @@ def show_cross_rating_page():
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
             st.session_state.cross_participant_situation = random_situation
             
-            # --- CRITICAL STEP: Run Self-Consistent LLM Prediction ---
-            st.subheader("🤖 LLM Prediction (Self-Consistency in Progress...)")
-            llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
+            # --- MODIFIED: Run LLM Prediction Silently and Early ---
+            # We use a silent spinner to hide the "Self-Consistency in Progress" phase
+            # while the actual prediction runs in the background.
+            llm_prediction_result = None
+            with st.spinner("Finalizing study submission..."):
+                 # The function itself has been modified to remove internal st.info/st.success calls.
+                 llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
             if llm_prediction_result:
                 trial_data = {
@@ -747,7 +775,7 @@ def show_cross_rating_page():
                 else:
                     return # Keep user on the page if save failed
             else:
-                 # Error was already displayed inside the prediction function
+                 st.error("Submission failed. The system was unable to generate a valid prediction.")
                  return
             
             st.rerun()
@@ -787,3 +815,14 @@ elif st.session_state.page == 'cross_rating':
     show_cross_rating_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
+
+# This ensures the user is always at the top of the new page, which is helpful
+# when navigating from a long page (like a rating form) to a new one.
+st.markdown(
+    """
+    <script>
+        window.scrollTo(0, 0);
+    </script>
+    """,
+    unsafe_allow_html=True
+)
