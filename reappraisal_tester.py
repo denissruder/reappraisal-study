@@ -204,7 +204,26 @@ def get_random_story_from_db():
 # --- 2. LLM LOGIC FUNCTIONS (Self-Consistency/Multiple CoTs) ---
 
 # --- LLM APPRAISAL PREDICTION TEMPLATE ---
+
 # FIX: Consolidated into one f-string and properly double-escaped all literal braces in the final JSON template to prevent LangChain from reading them as variables.
+JSON_SCORE_TEMPLATE = (
+    '{{ "motive_relevance_prediction": {{'
+    f'"Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE, '
+    f'"Physical_Promotion": SCORE, "Physical_Prevention": SCORE, '
+    f'"Wealth_Promotion": SCORE, "Wealth_Prevention": SCORE, '
+    f'"Predictability_Promotion": SCORE, "Predictability_Prevention": SCORE, '
+    f'"Competence_Promotion": SCORE, "Competence_Prevention": SCORE, '
+    f'"Growth_Promotion": SCORE, "Growth_Prevention": SCORE, '
+    f'"Autonomy_Promotion": SCORE, "Autonomy_Prevention": SCORE, '
+    f'"Relatedness_Promotion": SCORE, "Relatedness_Prevention": SCORE, '
+    f'"Acceptance_Promotion": SCORE, "Acceptance_Prevention": SCORE, '
+    f'"Status_Promotion": SCORE, "Status_Prevention": SCORE, '
+    f'"Responsibility_Promotion": SCORE, "Responsibility_Prevention": SCORE, '
+    f'"Meaning_Promotion": SCORE, "Meaning_Prevention": SCORE, '
+    f'"Instrumental_Promotion": SCORE, "Instrumental_Prevention": SCORE}} }}'
+)
+
+
 APPRAISAL_PREDICTION_TEMPLATE = f"""
 # ROLE: APPRAISAL ANALYST (Expert Psychological Assessor)
 You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This prediction must be highly granular, adhering to the 13 Motives and their 2 sub-dimensions (Promotion/Prevention).
@@ -232,8 +251,8 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
-{{"motive_relevance_prediction": {{"Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE, "Physical_Promotion": SCORE, "Physical_Prevention": SCORE, "Wealth_Promotion": SCORE, "Wealth_Prevention": SCORE, "Predictability_Promotion": SCORE, "Predictability_Prevention": SCORE, "Competence_Promotion": SCORE, "Competence_Prevention": SCORE, "Growth_Promotion": SCORE, "Growth_Prevention": SCORE, "Autonomy_Promotion": SCORE, "Autonomy_Prevention": SCORE, "Relatedness_Promotion": SCORE, "Relatedness_Prevention": SCORE, "Acceptance_Promotion": SCORE, "Acceptance_Prevention": SCORE, "Status_Promotion": SCORE, "Status_Prevention": SCORE, "Responsibility_Promotion": SCORE, "Responsibility_Prevention": SCORE, "Meaning_Promotion": SCORE, "Meaning_Prevention": SCORE, "Instrumental_Promotion": SCORE, "Instrumental_Prevention": SCORE}}}}
+OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning. Replace 'SCORE' with the numerical prediction.):
+{JSON_SCORE_TEMPLATE}
 """
 
 def parse_llm_json(response_content):
