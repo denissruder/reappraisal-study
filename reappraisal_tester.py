@@ -240,7 +240,13 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-Provide the JSON output (Only the JSON block should follow the </REASONING> tag):
+**CRITICAL:** Provide the JSON output **ONLY** wrapped in ```json ... ``` tags (No other text should follow the </REASONING> tag):
+```json
+{
+"motive_relevance_prediction": {
+// ... 26 scores here
+}
+}
 """
 
 def parse_llm_json(response_content):
@@ -277,50 +283,43 @@ def parse_llm_json(response_content):
         # Check if the remaining string is parseable
         analysis_data = json.loads(json_string, strict=False)
         
+        # 1. Check for top-level key
         if 'motive_relevance_prediction' not in analysis_data:
-             # --- LOGGING FOR DEBUG ---
-             print(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON.")
-             return None # Missing required top-level key
+             print(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON. Content starts with: {json_string[:100]}...") # ADDED CONTENT LOGGING
+             return None 
              
         prediction_scores = analysis_data['motive_relevance_prediction']
         
-        # Validate that we have the correct number of keys (26)
+        # 2. Check for key count
         if len(prediction_scores) != len(MOTIVE_SCORE_KEYS):
-            # --- LOGGING FOR DEBUG ---
-            print(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}.")
+            print(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}. Missing/Extra keys: {set(MOTIVE_SCORE_KEYS).symmetric_difference(set(prediction_scores.keys()))}") # ADDED KEY DIFF LOGGING
             return None
             
-        # Ensure all scores are integers/floats and within the 1-9 range
+        # 3. Check for specific keys and range
         for key in MOTIVE_SCORE_KEYS:
-            # Safely check key existence and range constraint
             if key not in prediction_scores:
-                # --- LOGGING FOR DEBUG ---
                 print(f"Parse Error: Missing required key '{key}'.")
                 return None
             
             try:
                 score = float(prediction_scores[key])
                 if not (1 <= score <= RATING_SCALE_MAX):
-                    # --- LOGGING FOR DEBUG ---
                     print(f"Parse Error: Score for '{key}' is {score}, which is outside the range 1-{RATING_SCALE_MAX}.")
                     return None
             except ValueError:
-                # --- LOGGING FOR DEBUG ---
-                print(f"Parse Error: Score for '{key}' is not a valid number.")
+                print(f"Parse Error: Score for '{key}' is not a valid number: {prediction_scores[key]}.") # LOG THE BAD VALUE
                 return None
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
-        
+            
     except json.JSONDecodeError as e:
-        # --- LOGGING FOR DEBUG ---
         print(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
         return None
     except Exception as e:
-        # --- LOGGING FOR DEBUG ---
         print(f"Parse Error: General exception during parsing: {e}")
         return None
-
+        
 @st.cache_data(show_spinner=False)
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
