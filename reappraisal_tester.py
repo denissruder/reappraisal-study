@@ -240,14 +240,22 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-**CRITICAL:** Provide the JSON output **ONLY** wrapped in ```json ... ``` tags (...):
-```json
-""" + """
-{{
-"motive_relevance_prediction": {
-// ... 26 scores here
-}
-}}
+OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
+{{"motive_relevance_prediction": {{
+"Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE,
+"Physical_Promotion": SCORE, "Physical_Prevention": SCORE,
+"Wealth_Promotion": SCORE, "Wealth_Prevention": SCORE,
+"Predictability_Promotion": SCORE, "Predictability_Prevention": SCORE,
+"Competence_Promotion": SCORE, "Competence_Prevention": SCORE,
+"Growth_Promotion": SCORE, "Growth_Prevention": SCORE,
+"Autonomy_Promotion": SCORE, "Autonomy_Prevention": SCORE,
+"Relatedness_Promotion": SCORE, "Relatedness_Prevention": SCORE,
+"Acceptance_Promotion": SCORE, "Acceptance_Prevention": SCORE,
+"Status_Promotion": SCORE, "Status_Prevention": SCORE,
+"Responsibility_Promotion": SCORE, "Responsibility_Prevention": SCORE,
+"Meaning_Promotion": SCORE, "Meaning_Prevention": SCORE,
+"Instrumental_Promotion": SCORE, "Instrumental_Prevention": SCORE
+}}}}
 """
 
 def parse_llm_json(response_content):
