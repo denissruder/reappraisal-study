@@ -61,6 +61,7 @@ MOTIVES_FULL = [
     {"motive": "Meaning", "promotion": "To make a difference", "prevention": "Not to waste my life"},
     {"motive": "Instrumental", "promotion": "To gain something", "prevention": "To avoid something"},
 ]
+
 MOTIVE_NAMES = [m["motive"] for m in MOTIVES_FULL] # List of 13 motives
 
 # Keys for the 26 final scores
@@ -68,6 +69,8 @@ MOTIVE_SCORE_KEYS = [
     f"{m['motive']}_{dim}"
     for m in MOTIVES_FULL for dim in ['Promotion', 'Prevention']
 ]
+
+JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
 
 # Regulatory Focus Questionnaire items (18 items)
 REG_FOCUS_ITEMS = [
@@ -109,21 +112,16 @@ INTERVIEW_QUESTIONS = [
 
 # --- RAG Contexts and Few-Shot Examples ---
 
-# RAG Source: Motive Relevance Theory
-MOTIVE_RELEVANCE_RAG = f"""
-# Motive Relevance Theory and Granular Assessment
-The goal is to predict the **relevance** of a situation to the participant's motive profile. Relevance is rated on a 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
-
-CRITICAL: For each of the {len(MOTIVE_NAMES)} core motives, you MUST predict relevance for two distinct sub-dimensions:
-1. **Promotion:** Relevance to the **growth/gain** component (e.g., To succeed/To feel good).
-2. **Prevention:** Relevance to the **safety/loss** component (e.g., To avoid failure/Not to feel bad).
-
-Your final JSON output must contain **26** key-value pairs (13 Motives * 2 Dimensions).
-"""
+# RAG Source: Motive Relevance Theory (Minimal f-string use, only for config variables)
+MOTIVE_RELEVANCE_RAG = (
+f"# Motive Relevance Theory\n"
+f"The goal is to predict the **relevance** of a situation to the participant's motive profile. Relevance is rated on a 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.\n\n"
+f"CRITICAL: The output MUST be granular: For each of the {len(MOTIVE_NAMES)} core motives, you MUST predict relevance for two distinct sub-dimensions (Promotion/Prevention). The keys are provided in the input."
+)
 
 # FEW-SHOT EXAMPLE for Motive Prediction
-APPRAISAL_FEW_SHOT_EXAMPLE = f"""
-# FEW-SHOT EXAMPLE: High Competence and Status Relevance
+APPRAISAL_FEW_SHOT_EXAMPLE = """
+# FEW-SHOT EXAMPLE (Consistency Principle)
 INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a major project. I feel intense shame and worry about my job."
 ---
 <REASONING>
@@ -135,8 +133,8 @@ INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a
    - Prevention (To avoid being ignored): Hindered, fear of negative attention was realized (8).
 3. **Physical Analysis:** No direct physical impact. All scores low (1).
 </REASONING>
-OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
-{{"motive_relevance_prediction": {{"Hedonic_Promotion": 4, "Hedonic_Prevention": 4, "Physical_Promotion": 1, "Physical_Prevention": 1, "Wealth_Promotion": 2, "Wealth_Prevention": 3, "Predictability_Promotion": 6, "Predictability_Prevention": 7, "Competence_Promotion": 9, "Competence_Prevention": 9, "Growth_Promotion": 5, "Growth_Prevention": 4, "Autonomy_Promotion": 3, "Autonomy_Prevention": 5, "Relatedness_Promotion": 4, "Relatedness_Prevention": 6, "Acceptance_Promotion": 7, "Acceptance_Prevention": 8, "Status_Promotion": 7, "Status_Prevention": 8, "Responsibility_Promotion": 7, "Responsibility_Prevention": 9, "Meaning_Promotion": 3, "Meaning_Prevention": 3, "Instrumental_Promotion": 7, "Instrumental_Prevention": 8}}}}
+OUTPUT MOTIVE RELEVANCE PREDICTION:
+{"motive_relevance_prediction": {"Hedonic_Promotion": 4, "Hedonic_Prevention": 4, "Physical_Promotion": 1, "Physical_Prevention": 1, "Wealth_Promotion": 2, "Wealth_Prevention": 3, "Predictability_Promotion": 6, "Predictability_Prevention": 7, "Competence_Promotion": 9, "Competence_Prevention": 9, "Growth_Promotion": 5, "Growth_Prevention": 4, "Autonomy_Promotion": 3, "Autonomy_Prevention": 5, "Relatedness_Promotion": 4, "Relatedness_Prevention": 6, "Acceptance_Promotion": 7, "Acceptance_Prevention": 8, "Status_Promotion": 7, "Status_Prevention": 8, "Responsibility_Promotion": 7, "Responsibility_Prevention": 9, "Meaning_Promotion": 3, "Meaning_Prevention": 3, "Instrumental_Promotion": 7, "Instrumental_Prevention": 8}}
 """
 
 # --- 1. LLM Initialization and Database Setup ---
@@ -206,38 +204,21 @@ def get_random_story_from_db():
 # --- LLM APPRAISAL PREDICTION TEMPLATE ---
 
 # FIX: Consolidated into one f-string and properly double-escaped all literal braces in the final JSON template to prevent LangChain from reading them as variables.
-JSON_SCORE_TEMPLATE = (
-    '{{ "motive_relevance_prediction": {{'
-    f'"Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE, '
-    f'"Physical_Promotion": SCORE, "Physical_Prevention": SCORE, '
-    f'"Wealth_Promotion": SCORE, "Wealth_Prevention": SCORE, '
-    f'"Predictability_Promotion": SCORE, "Predictability_Prevention": SCORE, '
-    f'"Competence_Promotion": SCORE, "Competence_Prevention": SCORE, '
-    f'"Growth_Promotion": SCORE, "Growth_Prevention": SCORE, '
-    f'"Autonomy_Promotion": SCORE, "Autonomy_Prevention": SCORE, '
-    f'"Relatedness_Promotion": SCORE, "Relatedness_Prevention": SCORE, '
-    f'"Acceptance_Promotion": SCORE, "Acceptance_Prevention": SCORE, '
-    f'"Status_Promotion": SCORE, "Status_Prevention": SCORE, '
-    f'"Responsibility_Promotion": SCORE, "Responsibility_Prevention": SCORE, '
-    f'"Meaning_Promotion": SCORE, "Meaning_Prevention": SCORE, '
-    f'"Instrumental_Promotion": SCORE, "Instrumental_Prevention": SCORE}} }}'
-)
-
-
 APPRAISAL_PREDICTION_TEMPLATE = f"""
-# ROLE: APPRAISAL ANALYST (Expert Psychological Assessor)
-You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This prediction must be highly granular, adhering to the 13 Motives and their 2 sub-dimensions (Promotion/Prevention).
+# PERSONA: APPRAISAL ANALYST (Expert Psychological Assessor)
+You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This task adheres to **ConVe principles** (Consistency and Verifiability).
 
-CRITICAL INSTRUCTIONS:
-1. **Use RAG Context:** Adhere to the {RATING_SCALE_MAX}-point scale and the granular definition of Relevance provided.
-2. **Chain-of-Thought (CoT):** You MUST provide your step-by-step reasoning within a <REASONING> block before providing the final JSON output.
-3. **Output Format:** The final JSON MUST contain **26** motive relevance scores, using the exact key format: `[MotiveName]_Promotion` and `[MotiveName]_Prevention`.
-
-# RAG CONTEXT: MOTIVE RELEVANCE THEORY
 {MOTIVE_RELEVANCE_RAG}
 
-# FEW-SHOT EXAMPLE
 {APPRAISAL_FEW_SHOT_EXAMPLE}
+
+--- TASK INSTRUCTIONS ---
+1. **Analyze:** Carefully review the SITUATION DESCRIPTION below.
+2. **Chain-of-Thought (CoT):** You MUST provide your step-by-step reasoning within a <REASONING> block.
+3. **Rating Scale:** Use the 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
+4. **Output Format:** Output MUST be a valid JSON object. The JSON MUST contain a single top-level key, "motive_relevance_prediction", whose value is a dictionary containing **all 26 keys** listed below, with a score from 1 to {RATING_SCALE_MAX}.
+
+REQUIRED JSON KEYS (26 total): {{required_keys}}
 
 --- TASK INPUT ---
 SITUATION DESCRIPTION: {{event_text}}
@@ -251,8 +232,8 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning. Replace 'SCORE' with the numerical prediction.):
-{JSON_SCORE_TEMPLATE}
+OUTPUT MOTIVE RELEVANCE PREDICTION:
+{{"motive_relevance_prediction": {{"Hedonic_Promotion": 5, "Hedonic_Prevention": 5, "Physical_Promotion": 5, "Physical_Prevention": 5, "Wealth_Promotion": 5, "Wealth_Prevention": 5, "Predictability_Promotion": 5, "Predictability_Prevention": 5, "Competence_Promotion": 5, "Competence_Prevention": 5, "Growth_Promotion": 5, "Growth_Prevention": 5, "Autonomy_Promotion": 5, "Autonomy_Prevention": 5, "Relatedness_Promotion": 5, "Relatedness_Prevention": 5, "Acceptance_Promotion": 5, "Acceptance_Prevention": 5, "Status_Promotion": 5, "Status_Prevention": 5, "Responsibility_Promotion": 5, "Responsibility_Prevention": 5, "Meaning_Promotion": 5, "Meaning_Prevention": 5, "Instrumental_Promotion": 5, "Instrumental_Prevention": 5}}}}
 """
 
 def parse_llm_json(response_content, attempt_number=0):
@@ -317,19 +298,20 @@ def parse_llm_json(response_content, attempt_number=0):
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
     Executes the LLM N_COTS times to generate a self-consistent prediction.
+    Returns the aggregated prediction or (None, last_failed_response_content) on failure.
     """
     
     prompt = PromptTemplate(
-        input_variables=["event_text"], 
+        # CRITICAL FIX: Include the new input variable "required_keys"
+        input_variables=["event_text", "required_keys"], 
         template=APPRAISAL_PREDICTION_TEMPLATE
     )
     chain = prompt | llm_instance
     
     # --- DEBUG STEP 1: Capture and Display the FULL Prompt ---
-    # Render the final prompt template with the user's input before the loop
     try:
-        final_prompt_content = prompt.format(event_text=event_text)
-        # Use st.expander for a cleaner UI; it only shows the content when clicked
+        # Format the prompt with both variables for debugging visibility
+        final_prompt_content = prompt.format(event_text=event_text, required_keys=JSON_KEYS_LIST)
         with st.expander("🔍 DEBUG: View Final Prompt Sent to LLM"):
             st.code(final_prompt_content, language="markdown")
     except Exception as e:
@@ -343,17 +325,21 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     for i in range(N_COTS):
         try:
             st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
-            response = chain.invoke({"event_text": event_text})
+            
+            # CRITICAL FIX: Invoke chain with both variables
+            response = chain.invoke({
+                "event_text": event_text, 
+                "required_keys": JSON_KEYS_LIST
+            })
+            
             response_content = response.content
             
-            # --- DEBUG STEP 2: Capture and Display Raw LLM Response ---
             if not response_content:
                 st.warning(f"DEBUG: Attempt {i+1} received an empty response.")
                 continue
 
             # Pass the raw response to the parser
             parsed_scores = parse_llm_json(response_content, attempt_number=i+1)
-            # --- END DEBUG STEP 2 ---
 
             if parsed_scores:
                 valid_predictions.append(parsed_scores)
@@ -365,23 +351,20 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         except Exception as e:
             st.error(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
         
-        time.sleep(0.5)
+        time.sleep(0.5) 
+
     if not valid_predictions:
-        # Log final failure
         st.error(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
-        # Return None for prediction result, and the content of the last failure
         return (None, last_failed_response) 
 
     # Aggregation step (Self-Consistency)
     final_prediction = {}
     for key in MOTIVE_SCORE_KEYS:
-        # Collect all scores for the current key from valid runs
         scores = [p[key] for p in valid_predictions]
-        # Calculate the mean (rounding to the nearest integer as the original scale is 1-9)
         final_prediction[key] = int(round(sum(scores) / len(scores)))
 
-    # Return the prediction result and an empty string for the failed response
     return ({"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}, "")
+    
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
 # --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
