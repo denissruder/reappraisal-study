@@ -245,18 +245,36 @@ Provide the JSON output (Only the JSON block should follow the </REASONING> tag)
 
 def parse_llm_json(response_content):
     """Safely extracts and parses the JSON block from the LLM's response."""
-    try:
-        json_string = response_content.strip()
+    json_string = response_content.strip()
+    
+    # --- NEW: Improved Heuristics for JSON Extraction ---
+    
+    # 1. Prioritize stripping markdown code blocks (```json ... ```)
+    if json_string.startswith("```"):
+        # Find the first and last triple-backtick markers
+        start_index = json_string.find("```")
+        end_index = json_string.rfind("```")
         
-        # Heuristics to find the JSON start and end
-        if json_string.rfind("{") != -1:
-            json_string = json_string[json_string.rfind("{"):].strip()
-        
-        if json_string.startswith("```json"):
-            json_string = json_string.lstrip("```json").rstrip("```")
-        elif json_string.startswith("```"):
-            json_string = json_string.lstrip("```").rstrip("```")
+        if start_index != -1 and end_index != -1 and start_index < end_index:
+            json_string = json_string[start_index + 3:end_index].strip()
+            # Remove optional language specifier (e.g., 'json')
+            if json_string.lower().startswith('json'):
+                 json_string = json_string[4:].strip()
 
+    # 2. Fallback: Find the last opening brace '{' and assume JSON starts there
+    # This is necessary for responses that omit the markdown block wrappers
+    if not (json_string.startswith("{") and json_string.endswith("}")):
+         last_open_brace = json_string.rfind("{")
+         if last_open_brace != -1:
+             json_string = json_string[last_open_brace:].strip()
+             # Attempt to clean up trailing text if the JSON object ends early
+             last_close_brace = json_string.rfind("}")
+             if last_close_brace != -1 and last_close_brace < len(json_string) - 1:
+                  json_string = json_string[:last_close_brace + 1]
+
+
+    try:
+        # Check if the remaining string is parseable
         analysis_data = json.loads(json_string, strict=False)
         
         if 'motive_relevance_prediction' not in analysis_data:
@@ -296,13 +314,12 @@ def parse_llm_json(response_content):
         
     except json.JSONDecodeError as e:
         # --- LOGGING FOR DEBUG ---
-        print(f"Parse Error: JSON decoding failed. Response content starts with: {response_content[:100]}... Error: {e}")
+        print(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
         return None
     except Exception as e:
         # --- LOGGING FOR DEBUG ---
         print(f"Parse Error: General exception during parsing: {e}")
         return None
-
 
 @st.cache_data(show_spinner=False)
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
