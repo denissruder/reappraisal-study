@@ -240,6 +240,7 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
+""" + """
 OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoning):
 {{"motive_relevance_prediction": {{
 "Hedonic_Promotion": SCORE, "Hedonic_Prevention": SCORE,
