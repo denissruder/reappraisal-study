@@ -5,6 +5,7 @@ import datetime
 import uuid
 import time
 import random
+import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
@@ -41,25 +42,26 @@ div[data-testid="stForm"] label {
 
 MODEL_NAME = "gemini-2.5-flash"
 TEMP = 0.8 # Increased temperature for more diverse CoTs
+RATING_SCALE_MIN = 1
 RATING_SCALE_MAX = 9 
 MIN_NARRATIVE_LENGTH = 100
 N_COTS = 5 # *** NEW: Number of Chain-of-Thought runs for Self-Consistency ***
 
 # Comprehensive list of Motives and their Promotion/Prevention framings
 MOTIVES_FULL = [
-    {"motive": "Hedonic", "promotion": "To feel good", "prevention": "Not to feel bad"},
-    {"motive": "Physical", "promotion": "To be in good health", "prevention": "To stay safe"},
-    {"motive": "Wealth", "promotion": "To have money", "prevention": "To avoid poverty"},
-    {"motive": "Predictability", "promotion": "To understand", "prevention": "To avoid confusion"},
-    {"motive": "Competence", "promotion": "To succeed", "prevention": "To avoid failure"},
-    {"motive": "Growth", "promotion": "To learn and grow", "prevention": "To avoid monotony or decline"},
-    {"motive": "Autonomy", "promotion": "To be free to decide", "prevention": "Not to be told what to do"},
-    {"motive": "Relatedness", "promotion": "To feel connected", "prevention": "To avoid loneliness"},
-    {"motive": "Acceptance", "promotion": "To be liked", "prevention": "To avoid disapproval"},
-    {"motive": "Status", "promotion": "To stand out", "prevention": "To avoid being ignored"},
-    {"motive": "Responsibility", "promotion": "To live up to expectations", "prevention": "Not to let others down"},
-    {"motive": "Meaning", "promotion": "To make a difference", "prevention": "Not to waste my life"},
-    {"motive": "Instrumental", "promotion": "To gain something", "prevention": "To avoid something"},
+    {"motive": "Hedonic", "Promotion": "To feel good", "Prevention": "Not to feel bad"},
+    {"motive": "Physical", "Promotion": "To be in good health", "Prevention": "To stay safe"},
+    {"motive": "Wealth", "Promotion": "To have money", "Prevention": "To avoid poverty"},
+    {"motive": "Predictability", "Promotion": "To understand", "Prevention": "To avoid confusion"},
+    {"motive": "Competence", "Promotion": "To succeed", "Prevention": "To avoid failure"},
+    {"motive": "Growth", "Promotion": "To learn and grow", "Prevention": "To avoid monotony or decline"},
+    {"motive": "Autonomy", "Promotion": "To be free to decide", "Prevention": "Not to be told what to do"},
+    {"motive": "Relatedness", "Promotion": "To feel connected", "Prevention": "To avoid loneliness"},
+    {"motive": "Acceptance", "Promotion": "To be liked", "Prevention": "To avoid disapproval"},
+    {"motive": "Status", "Promotion": "To stand out", "Prevention": "To avoid being ignored"},
+    {"motive": "Responsibility", "Promotion": "To live up to expectations", "Prevention": "Not to let others down"},
+    {"motive": "Meaning", "Promotion": "To make a difference", "Prevention": "Not to waste my life"},
+    {"motive": "Instrumental", "Promotion": "To gain something", "Prevention": "To avoid something"},
 ]
 
 MOTIVE_NAMES = [m["motive"] for m in MOTIVES_FULL] # List of 13 motives
@@ -71,6 +73,12 @@ MOTIVE_SCORE_KEYS = [
 ]
 
 JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
+
+# NEW: Format the full motive list for inclusion in the RAG block
+MOTIVE_LIST_FOR_RAG = "\n".join([
+    f"- {m['motive']}: Promotion Goal: '{m['Promotion']}', Prevention Goal: '{m['Prevention']}'"
+    for m in MOTIVES_FULL
+])
 
 # Regulatory Focus Questionnaire items (18 items)
 REG_FOCUS_ITEMS = [
@@ -110,16 +118,32 @@ INTERVIEW_QUESTIONS = [
     "Did things go as you expected? If not, what was unexpected?"
 ]
 
-# --- RAG Contexts and Few-Shot Examples ---
+# --- RAG Context and Few-Shot Examples ---
 
-# RAG Source: Motive Relevance Theory (Minimal f-string use, only for config variables)
-MOTIVE_RELEVANCE_RAG = (
-f"# Motive Relevance Theory\n"
-f"The goal is to predict the **relevance** of a situation to the participant's motive profile. Relevance is rated on a 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.\n\n"
-f"CRITICAL: The output MUST be granular: For each of the {len(MOTIVE_NAMES)} core motives, you MUST predict relevance for two distinct sub-dimensions (Promotion/Prevention). The keys are provided in the input."
-)
+# RAG CONTEXT: Regulatory Focus Theory (RFT) Explanation:
+MOTIVE_RELEVANCE_RAG = f"""
 
-# FEW-SHOT EXAMPLE for Motive Prediction
+Regulatory Focus Theory (RFT), developed by E. Tory Higgins, is a psychological framework that explains two distinct ways individuals pursue goals and regulate behavior: the **Promotion Focus** and the **Prevention Focus**. These two systems are independent and reflect different motivational strategies for achieving desired end states.
+
+1. Promotion Focus (Ideals and Gains)
+This focus is oriented toward **ideals, aspirations, and accomplishments**. It is concerned with **advancement, growth, and maximizing positive outcomes (gains)**.
+* Goal: Striving for the presence of positive outcomes (e.g., "becoming rich").
+* Strategy: **Eagerness** (acting fast, seeking opportunities, ensuring "hits").
+* Emotions: Characterized by **Cheerfulness/Dejection** based on whether a gain is achieved or missed.
+* Mindset: "Play to win."
+
+2. Prevention Focus (Oughts and Non-Losses)
+This focus is oriented toward **duties, responsibilities, and obligations**. It is concerned with **safety, security, and minimizing negative outcomes (losses)**.
+* Goal: Striving for the absence of negative outcomes (e.g., "avoiding poverty").
+* Strategy: **Vigilance** (acting carefully, being thorough, ensuring "correct rejections").
+* Emotions: Characterized by **Quiescence/Agitation** based on whether security is maintained or threatened.
+* Mindset: "Play to not lose.
+
+**Full Motives List:** {MOTIVES_FULL}
+Individuals rate motives on a scale from **{RATING_SCALE_MIN} (Not at all important)** to **{RATING_SCALE_MAX} (Very important)** to determine their dominant focus.
+"""
+
+# FEW-SHOT EXAMPLE for Motive Prediction (Raw string, remains the format reference)
 APPRAISAL_FEW_SHOT_EXAMPLE = """
 # FEW-SHOT EXAMPLE (Consistency Principle)
 INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a major project. I feel intense shame and worry about my job."
@@ -216,7 +240,7 @@ You are an objective Appraisal Analyst. Your task is to predict the **Motivation
 1. **Analyze:** Carefully review the SITUATION DESCRIPTION below.
 2. **Chain-of-Thought (CoT):** You MUST provide your step-by-step reasoning within a <REASONING> block.
 3. **Rating Scale:** Use the 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
-4. **Output Format:** Output MUST be a valid JSON object. The JSON MUST contain a single top-level key, "motive_relevance_prediction", whose value is a dictionary containing **all 26 keys** listed below, with a score from 1 to {RATING_SCALE_MAX}.
+4. **Output Format:** The output MUST be a valid JSON object. It MUST start with the key "motive_relevance_prediction". The inner dictionary MUST contain **all 26 keys** listed below, with a score from 1 to {RATING_SCALE_MAX}.
 
 REQUIRED JSON KEYS (26 total): {{required_keys}}
 
@@ -232,67 +256,76 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-OUTPUT MOTIVE RELEVANCE PREDICTION:
-{{"motive_relevance_prediction": {{"Hedonic_Promotion": 5, "Hedonic_Prevention": 5, "Physical_Promotion": 5, "Physical_Prevention": 5, "Wealth_Promotion": 5, "Wealth_Prevention": 5, "Predictability_Promotion": 5, "Predictability_Prevention": 5, "Competence_Promotion": 5, "Competence_Prevention": 5, "Growth_Promotion": 5, "Growth_Prevention": 5, "Autonomy_Promotion": 5, "Autonomy_Prevention": 5, "Relatedness_Promotion": 5, "Relatedness_Prevention": 5, "Acceptance_Promotion": 5, "Acceptance_Prevention": 5, "Status_Promotion": 5, "Status_Prevention": 5, "Responsibility_Promotion": 5, "Responsibility_Prevention": 5, "Meaning_Promotion": 5, "Meaning_Prevention": 5, "Instrumental_Promotion": 5, "Instrumental_Prevention": 5}}}}
+OUTPUT MOTIVE RELEVANCE PREDICTION (Provide ONLY the JSON block, using the structure shown in the Few-Shot Example):
 """
 
 def parse_llm_json(response_content, attempt_number=0):
-    """Safely extracts and parses the JSON block from the LLM's response."""
+    """Safely extracts and parses the JSON block and reasoning from the LLM's response."""
     
-    json_string = response_content.strip()
-    
-    # --- NEW: Improved Heuristics for JSON Extraction ---
-    
-    # 1. Prioritize stripping markdown code blocks (```json ... ```)
-    if json_string.startswith("```"):
-        # Find the first and last triple-backtick markers
-        start_index = json_string.find("```")
-        end_index = json_string.rfind("```")
-        
-        if start_index != -1 and end_index != -1 and start_index < end_index:
-            json_string = json_string[start_index + 3:end_index].strip()
-            # Remove optional language specifier (e.g., 'json')
-            if json_string.lower().startswith('json'):
-                 json_string = json_string[4:].strip()
+    # 1. Extract Reasoning
+    reasoning_match = re.search(r'<REASONING>(.*?)</REASONING>', response_content, re.DOTALL)
+    reasoning_text = reasoning_match.group(1).strip() if reasoning_match else "Reasoning block not found."
 
-    # 2. Fallback: Find the last opening brace '{' and assume JSON starts there
-    # This is necessary for responses that omit the markdown block wrappers
-    if not (json_string.startswith("{") and json_string.endswith("}")):
-         last_open_brace = json_string.rfind("{")
-         if last_open_brace != -1:
-             json_string = json_string[last_open_brace:].strip()
-             # Attempt to clean up trailing text if the JSON object ends early
-             last_close_brace = json_string.rfind("}")
-             if last_close_brace != -1 and last_close_brace < len(json_string) - 1:
-                  json_string = json_string[:last_close_brace + 1]
-
+    # 2. Heuristically Extract JSON String (Focusing on robust extraction)
+    json_string = ""
     try:
-        # Check if the remaining string is parseable
-        analysis_data = json.loads(json_string, strict=True)
+        # Find the starting point for the JSON by looking for the header and the first brace
+        start_index = response_content.find("OUTPUT MOTIVE RELEVANCE PREDICTION:")
+        if start_index == -1:
+            raise ValueError("JSON header not found.")
+            
+        json_string_candidate = response_content[start_index:]
         
-        # ... (Keep the validation checks for 'motive_relevance_prediction' key count, and score range) ...
-                
-        # Return the actual scores dictionary for aggregation
-        return {k: int(round(float(v))) for k, v in prediction_scores.items()}
+        json_start = json_string_candidate.find('{')
+        if json_start == -1:
+            raise ValueError("JSON starting brace not found after header.")
+            
+        json_string_candidate = json_string_candidate[json_start:]
+        
+        # Simple brace counter to find the end of the top-level JSON block
+        brace_count = 0
+        json_end = -1
+        for i, char in enumerate(json_string_candidate):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    json_end = i
+                    break
+        
+        if json_end == -1:
+             raise ValueError("JSON block is incomplete or ill-formed (unbalanced braces).")
+
+        json_string = json_string_candidate[:json_end + 1].strip()
+        
+    except Exception as e:
+        st.error(f"Parse Error (Attempt {attempt_number}): Could not locate or isolate JSON block. {e}")
+        # Return None for scores, but return the extracted reasoning
+        return (None, reasoning_text)
+
+    # 3. JSON Parsing and Validation
+    try:
+        analysis_data = json.loads(json_string, strict=False)
+        
+        prediction_scores = analysis_data.get("motive_relevance_prediction")
+        if not prediction_scores:
+            raise ValueError("Key 'motive_relevance_prediction' not found in JSON output.")
+
+        # If validation checks were here, they would execute now...
+        
+        # Return the actual scores dictionary and the reasoning
+        return ({k: int(round(float(v))) for k, v in prediction_scores.items()}, reasoning_text)
             
     except json.JSONDecodeError as e:
-        # --- DEBUG STEP 3: Display raw content on JSON Decode failure ---
         st.error(f"Parse Error (Attempt {attempt_number}): JSON decoding failed. Error: {e}")
         with st.expander(f"❌ DEBUG: View Raw Content that Failed to Parse (Attempt {attempt_number})"):
-             st.code(response_content, language="text") # Show the full, uncleaned LLM output
-        # --- END DEBUG STEP 3 ---
-        return None
+             st.code(response_content, language="text") 
+        return (None, reasoning_text)
         
     except Exception as e:
         st.error(f"Parse Error (Attempt {attempt_number}): General exception during parsing: {e}")
-        return None
-            
-    except json.JSONDecodeError as e:
-        st.error(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
-        return None
-    except Exception as e:
-        st.error(f"Parse Error: General exception during parsing: {e}")
-        return None
+        return (None, reasoning_text)
         
 @st.cache_data(show_spinner=False)
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
@@ -301,36 +334,16 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     Returns the aggregated prediction or (None, last_failed_response_content) on failure.
     """
     
-    prompt = PromptTemplate(
-        # CRITICAL FIX: Include the new input variable "required_keys"
-        input_variables=["event_text", "required_keys"], 
-        template=APPRAISAL_PREDICTION_TEMPLATE
-    )
-    chain = prompt | llm_instance
-    
-    # --- DEBUG STEP 1: Capture and Display the FULL Prompt ---
-    try:
-        # Format the prompt with both variables for debugging visibility
-        final_prompt_content = prompt.format(event_text=event_text, required_keys=JSON_KEYS_LIST)
-        with st.expander("🔍 DEBUG: View Final Prompt Sent to LLM"):
-            st.code(final_prompt_content, language="markdown")
-    except Exception as e:
-        st.error(f"DEBUG ERROR: Failed to format final prompt: {e}")
-    # --- END DEBUG STEP 1 ---
+    # ... (prompt definition remains the same) ...
     
     valid_predictions = []
+    collected_reasoning = "" # <<< NEW: Variable to store reasoning
     last_failed_response = "" 
 
     # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
         try:
-            st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
-            
-            # CRITICAL FIX: Invoke chain with both variables
-            response = chain.invoke({
-                "event_text": event_text, 
-                "required_keys": JSON_KEYS_LIST
-            })
+            # ... (chain.invoke call) ...
             
             response_content = response.content
             
@@ -338,21 +351,23 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
                 st.warning(f"DEBUG: Attempt {i+1} received an empty response.")
                 continue
 
-            # Pass the raw response to the parser
-            parsed_scores = parse_llm_json(response_content, attempt_number=i+1)
+            # NEW: parse_llm_json now returns a tuple (scores, reasoning)
+            parsed_scores, current_reasoning = parse_llm_json(response_content, attempt_number=i+1)
 
             if parsed_scores:
                 valid_predictions.append(parsed_scores)
                 st.success(f"Prediction {i+1} successful and valid.")
+                
+                # NEW: Capture reasoning from the first successful run
+                if not collected_reasoning:
+                     collected_reasoning = current_reasoning
+
             else:
                 st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.")
-                last_failed_response = response_content # Update on failure
+                last_failed_response = response_content 
                 
-        except Exception as e:
-            st.error(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
+        # ... (rest of the try/except block remains the same) ...
         
-        time.sleep(0.5) 
-
     if not valid_predictions:
         st.error(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
         return (None, last_failed_response) 
@@ -363,8 +378,14 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         scores = [p[key] for p in valid_predictions]
         final_prediction[key] = int(round(sum(scores) / len(scores)))
 
-    return ({"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}, "")
+    # NEW: Add the collected reasoning to the final result dictionary
+    final_result = {
+        "motive_relevance_prediction": final_prediction, 
+        "n_cots_used": len(valid_predictions),
+        "llm_appraisal_reasoning": collected_reasoning
+    }
     
+    return (final_result, "")    
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
 # --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
