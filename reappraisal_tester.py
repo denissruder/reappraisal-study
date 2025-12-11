@@ -260,8 +260,10 @@ OUTPUT MOTIVE RELEVANCE PREDICTION (JSON block follows immediately after reasoni
 
 def parse_llm_json(response_content):
     """Safely extracts and parses the JSON block from the LLM's response."""
-    st.error(json_string)
+    
     json_string = response_content.strip()
+    
+    st.warning(f"Raw JSON String (for debugging): {json_string[:500]}")
     
     # --- NEW: Improved Heuristics for JSON Extraction ---
     
