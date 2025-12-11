@@ -710,7 +710,27 @@ def show_situation_rating_page():
             st.session_state.page = 'cross_rating'
             st.rerun()
 
-  with st.form("cross_rating_form"):
+def show_cross_rating_page():
+    """Renders the cross-participant rating task (Step 4) and triggers the Self-Consistent LLM prediction (Step 5)."""
+    st.title("👥 Cross-Participant Appraisal (26 Scores)")
+    st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
+
+    # --- MODIFIED: Fetch a random story from the DB ---
+    random_situation = get_random_story_from_db()
+    
+    st.subheader("Situation from Another Participant:")
+    with st.container(border=True):
+        st.info(random_situation)
+
+    # Define the 1-9 radio options
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+    
+    if 'cross_motive_scores' not in st.session_state:
+        st.session_state.cross_motive_scores = {
+            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
+        }
+
+    with st.form("cross_rating_form"):
         st.markdown(f"""
         Please rate the relevance of the situation above on a scale of 1 to {RATING_SCALE_MAX}, 
         based on what you think the **original author felt** (their perspective). You must provide **two scores** for each motive.
