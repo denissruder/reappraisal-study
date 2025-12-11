@@ -240,7 +240,7 @@ Begin the analysis below.
 3. ...
 </REASONING>
 
-**CRITICAL:** Provide the JSON output **ONLY** wrapped in ```json ... ``` tags (No other text should follow the </REASONING> tag):
+**CRITICAL:** Provide the JSON output **ONLY** wrapped in ```json ... ``` tags (...):
 ```json
 {{
 "motive_relevance_prediction": {{
