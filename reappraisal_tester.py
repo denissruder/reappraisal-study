@@ -260,24 +260,47 @@ def parse_llm_json(response_content):
         analysis_data = json.loads(json_string, strict=False)
         
         if 'motive_relevance_prediction' not in analysis_data:
+             # --- LOGGING FOR DEBUG ---
+             print(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON.")
              return None # Missing required top-level key
              
         prediction_scores = analysis_data['motive_relevance_prediction']
         
         # Validate that we have the correct number of keys (26)
         if len(prediction_scores) != len(MOTIVE_SCORE_KEYS):
+            # --- LOGGING FOR DEBUG ---
+            print(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}.")
             return None
             
         # Ensure all scores are integers/floats and within the 1-9 range
         for key in MOTIVE_SCORE_KEYS:
             # Safely check key existence and range constraint
-            if key not in prediction_scores or not (1 <= float(prediction_scores[key]) <= RATING_SCALE_MAX):
+            if key not in prediction_scores:
+                # --- LOGGING FOR DEBUG ---
+                print(f"Parse Error: Missing required key '{key}'.")
+                return None
+            
+            try:
+                score = float(prediction_scores[key])
+                if not (1 <= score <= RATING_SCALE_MAX):
+                    # --- LOGGING FOR DEBUG ---
+                    print(f"Parse Error: Score for '{key}' is {score}, which is outside the range 1-{RATING_SCALE_MAX}.")
+                    return None
+            except ValueError:
+                # --- LOGGING FOR DEBUG ---
+                print(f"Parse Error: Score for '{key}' is not a valid number.")
                 return None
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
         
-    except Exception:
+    except json.JSONDecodeError as e:
+        # --- LOGGING FOR DEBUG ---
+        print(f"Parse Error: JSON decoding failed. Response content starts with: {response_content[:100]}... Error: {e}")
+        return None
+    except Exception as e:
+        # --- LOGGING FOR DEBUG ---
+        print(f"Parse Error: General exception during parsing: {e}")
         return None
 
 
@@ -692,7 +715,7 @@ def show_cross_rating_page():
     st.title("👥 Cross-Participant Appraisal (26 Scores)")
     st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
 
-    # --- MODIFIED: Fetch a random story from the DB ---
+    # --- Fetch a random story from the DB ---
     random_situation = get_random_story_from_db()
     
     st.subheader("Situation from Another Participant:")
@@ -722,26 +745,8 @@ def show_cross_rating_page():
                 f"Relevance to Promotion Focus: *{m['promotion']}* (The author's perspective)",
                 options=RADIO_OPTIONS, 
                 index=cross_scores[m['motive']]['Promotion'] - 1, 
-                horizontal=True, 
-                key=f"cross_{m['motive']}_Promotion"
-            )
-            # Prevention Focus Relevance (NOW RADIO BUTTONS)
-            cross_scores[m['motive']]['Prevention'] = st.radio(
-                f"Relevance to Prevention Focus: *{m['prevention']}* (The author's perspective)",
-                options=RADIO_OPTIONS, 
-                index=cross_scores[m['motive']]['Prevention'] - 1, 
-                horizontal=True, 
-                key=f"cross_{m['motive']}_Prevention"
-            )
-        
-        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
-            st.session_state.cross_participant_situation = random_situation
-            
-            # --- MODIFIED: Run LLM Prediction Silently and Early ---
-            # We use a silent spinner to hide the "Self-Consistency in Progress" phase
-            # while the actual prediction runs in the background.
-            llm_prediction_result = None
-            with st.spinner("Finalizing study submission..."):
+                horizontal=True, This is usually a parsing error (the model didn't put the JSON in the right format) or a validation error (the scores weren't integers between 1 and 9).
+            with st.spinner("Finalizing study submission (Running system checks in background)..."):
                  # The function itself has been modified to remove internal st.info/st.success calls.
                  llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
@@ -775,7 +780,7 @@ def show_cross_rating_page():
                 else:
                     return # Keep user on the page if save failed
             else:
-                 st.error("Submission failed. The system was unable to generate a valid prediction.")
+                 st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. Please try again, or check the console for detailed LLM parsing errors.")
                  return
             
             st.rerun()
