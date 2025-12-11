@@ -746,6 +746,7 @@ def show_cross_rating_page():
                 options=RADIO_OPTIONS, 
                 index=cross_scores[m['motive']]['Promotion'] - 1, 
                 horizontal=True, This is usually a parsing error (the model didn't put the JSON in the right format) or a validation error (the scores weren't integers between 1 and 9).
+            )
             with st.spinner("Finalizing study submission (Running system checks in background)..."):
                  # The function itself has been modified to remove internal st.info/st.success calls.
                  llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
