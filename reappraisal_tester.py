@@ -285,39 +285,39 @@ def parse_llm_json(response_content):
         
         # 1. Check for top-level key
         if 'motive_relevance_prediction' not in analysis_data:
-             print(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON. Content starts with: {json_string[:100]}...") # ADDED CONTENT LOGGING
+             st.error(f"Parse Error: Missing 'motive_relevance_prediction' key in top level JSON. Content starts with: {json_string[:100]}...") # ADDED CONTENT LOGGING
              return None 
              
         prediction_scores = analysis_data['motive_relevance_prediction']
         
         # 2. Check for key count
         if len(prediction_scores) != len(MOTIVE_SCORE_KEYS):
-            print(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}. Missing/Extra keys: {set(MOTIVE_SCORE_KEYS).symmetric_difference(set(prediction_scores.keys()))}") # ADDED KEY DIFF LOGGING
+            st.error(f"Parse Error: Incorrect number of keys. Expected 26, got {len(prediction_scores)}. Missing/Extra keys: {set(MOTIVE_SCORE_KEYS).symmetric_difference(set(prediction_scores.keys()))}") # ADDED KEY DIFF LOGGING
             return None
             
         # 3. Check for specific keys and range
         for key in MOTIVE_SCORE_KEYS:
             if key not in prediction_scores:
-                print(f"Parse Error: Missing required key '{key}'.")
+                st.error(f"Parse Error: Missing required key '{key}'.")
                 return None
             
             try:
                 score = float(prediction_scores[key])
                 if not (1 <= score <= RATING_SCALE_MAX):
-                    print(f"Parse Error: Score for '{key}' is {score}, which is outside the range 1-{RATING_SCALE_MAX}.")
+                    st.error(f"Parse Error: Score for '{key}' is {score}, which is outside the range 1-{RATING_SCALE_MAX}.")
                     return None
             except ValueError:
-                print(f"Parse Error: Score for '{key}' is not a valid number: {prediction_scores[key]}.") # LOG THE BAD VALUE
+                st.error(f"Parse Error: Score for '{key}' is not a valid number: {prediction_scores[key]}.") # LOG THE BAD VALUE
                 return None
                 
         # Return the actual scores dictionary for aggregation
         return {k: int(round(float(v))) for k, v in prediction_scores.items()}
             
     except json.JSONDecodeError as e:
-        print(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
+        st.error(f"Parse Error: JSON decoding failed. Response content starts with: {json_string[:100]}... Error: {e}")
         return None
     except Exception as e:
-        print(f"Parse Error: General exception during parsing: {e}")
+        st.error(f"Parse Error: General exception during parsing: {e}")
         return None
         
 @st.cache_data(show_spinner=False)
@@ -348,12 +348,12 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
             else:
                 # Parsing failed (reason logged in parse_llm_json). Save the output.
                 last_failed_response = response_content
-                print(f"Prediction attempt {i+1} failed validation. LLM output content (start):\n{response_content[:500]}...")
+                st.error(f"Prediction attempt {i+1} failed validation. LLM output content (start):\n{response_content[:500]}...")
                 pass
                 
         except Exception as e:
             # Log invocation error
-            print(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
+            st.error(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
             pass
         
         # Small delay to potentially aid in CoT diversity
@@ -361,7 +361,7 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
 
     if not valid_predictions:
         # Log final failure
-        print(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
+        st.error(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
         # Return None for prediction result, and the content of the last failure
         return (None, last_failed_response) 
 
