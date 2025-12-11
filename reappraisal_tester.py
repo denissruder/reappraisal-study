@@ -64,20 +64,49 @@ MOTIVES_FULL = [
     {"motive": "Instrumental", "Promotion": "To gain something", "Prevention": "To avoid something"},
 ]
 
-MOTIVE_NAMES = [m["motive"] for m in MOTIVES_FULL] # List of 13 motives
-
-# Keys for the 26 final scores
-MOTIVE_SCORE_KEYS = [
-    f"{m['motive']}_{dim}"
-    for m in MOTIVES_FULL for dim in ['Promotion', 'Prevention']
+# 1. Core Motive Descriptions List (Used for the first RAG list)
+CORE_MOTIVE_DESCRIPTIONS = [
+    ("Hedonic", "The need to experience pleasure and comfort, or to avoid pain and discomfort."),
+    ("Physical", "The need to maintain one's body (health, fitness) and ensure its continued well-being."),
+    ("Wealth", "The need for financial resources and economic security."),
+    ("Predictability", "The need to understand the environment, have order, and avoid uncertainty or confusion."),
+    ("Competence", "The need to feel capable, effective, and successful at tasks and challenges."),
+    ("Growth", "The need for continuous learning, development, and personal expansion."),
+    ("Autonomy", "The need for self-determination, control over one's life, and the ability to make independent choices."),
+    ("Relatedness", "The need to form and maintain close, positive, and meaningful bonds with others."),
+    ("Acceptance", "The need to be approved of, respected, and feel included by social groups."),
+    ("Status", "The need for recognition, social rank, influence, or prominence within a group."),
+    ("Responsibility", "The need to fulfill one's duties, meet obligations, and act reliably towards others."),
+    ("Meaning", "The need to feel that one's life is significant, purposeful, and contributes to something larger."),
+    ("Instrumental", "The need to view actions and resources as means to an end, focused on practical outcomes."),
 ]
 
-JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
+# 2. Promotion Goals List (Used for the second RAG list)
+PROMOTION_GOALS_LIST = [
+    (motive['motive'], motive['Promotion'])
+    for motive in MOTIVES_FULL
+]
 
-# NEW: Format the full motive list for inclusion in the RAG block
-MOTIVE_LIST_FOR_RAG = "\n".join([
-    f"- {m['motive']}: Promotion Goal: '{m['Promotion']}', Prevention Goal: '{m['Prevention']}'"
-    for m in MOTIVES_FULL
+# 3. Prevention Goals List (Used for the third RAG list)
+PREVENTION_GOALS_LIST = [
+    (motive['motive'], motive['Prevention'])
+    for motive in MOTIVES_FULL
+]
+
+# Create string representations of the lists for the RAG prompt f-string
+CORE_MOTIVES_RAG_STRING = "\n".join([
+    f"- {motive[0]}: {motive[1]}"
+    for motive in CORE_MOTIVE_DESCRIPTIONS
+])
+
+PROMOTION_GOALS_RAG_STRING = "\n".join([
+    f"- {motive[0]}: '{motive[1]}'"
+    for motive in PROMOTION_GOALS_LIST
+])
+
+PREVENTION_GOALS_RAG_STRING = "\n".join([
+    f"- {motive[0]}: '{motive[1]}'"
+    for motive in PREVENTION_GOALS_LIST
 ])
 
 # Regulatory Focus Questionnaire items (18 items)
@@ -120,10 +149,15 @@ INTERVIEW_QUESTIONS = [
 
 # --- RAG Context and Few-Shot Examples ---
 
-# RAG CONTEXT: Regulatory Focus Theory (RFT) Explanation:
 MOTIVE_RELEVANCE_RAG = f"""
+# RAG CONTEXT: Regulatory Focus Theory (RFT) Explanation:
 
-Regulatory Focus Theory (RFT), developed by E. Tory Higgins, is a psychological framework that explains two distinct ways individuals pursue goals and regulate behavior: the **Promotion Focus** and the **Prevention Focus**. These two systems are independent and reflect different motivational strategies for achieving desired end states.
+Regulatory Focus Theory (RFT), developed by E. Tory Higgins, is a psychological framework that explains two distinct ways individuals pursue goals and regulate behavior. 
+
+**There are 13 core motives (Underlying Needs):**
+{CORE_MOTIVES_RAG_STRING}
+
+Regulatory Focus Theory (RFT) mandates that all motives are assessed along two independent motivational orientations: Promotion (Gains/Ideals) and Prevention (Non-Losses/Oughts).
 
 1. Promotion Focus (Ideals and Gains)
 This focus is oriented toward **ideals, aspirations, and accomplishments**. It is concerned with **advancement, growth, and maximizing positive outcomes (gains)**.
@@ -132,14 +166,19 @@ This focus is oriented toward **ideals, aspirations, and accomplishments**. It i
 * Emotions: Characterized by **Cheerfulness/Dejection** based on whether a gain is achieved or missed.
 * Mindset: "Play to win."
 
+**Goals oriented toward advancement, growth, and achieving positive outcomes:**
+{PROMOTION_GOALS_RAG_STRING}
+
 2. Prevention Focus (Oughts and Non-Losses)
 This focus is oriented toward **duties, responsibilities, and obligations**. It is concerned with **safety, security, and minimizing negative outcomes (losses)**.
 * Goal: Striving for the absence of negative outcomes (e.g., "avoiding poverty").
 * Strategy: **Vigilance** (acting carefully, being thorough, ensuring "correct rejections").
 * Emotions: Characterized by **Quiescence/Agitation** based on whether security is maintained or threatened.
-* Mindset: "Play to not lose.
+* Mindset: "Play to not lose."
 
-**Full Motives List:** {MOTIVES_FULL}
+**Goals oriented toward duties, security, and minimizing negative outcomes:**
+{PREVENTION_GOALS_RAG_STRING}
+
 Individuals rate motives on a scale from **{RATING_SCALE_MIN} (Not at all important)** to **{RATING_SCALE_MAX} (Very important)** to determine their dominant focus.
 """
 
