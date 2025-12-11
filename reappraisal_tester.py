@@ -308,7 +308,7 @@ def parse_llm_json(response_content):
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     """
     Executes the LLM N_COTS times to generate a self-consistent prediction.
-    *** MODIFIED: Removed all st.info/st.success/st.error calls to hide progress. ***
+    Returns the aggregated prediction or (None, last_failed_response_content) on failure.
     """
     
     prompt = PromptTemplate(
@@ -318,33 +318,36 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     chain = prompt | llm_instance
     
     valid_predictions = []
-    
+    last_failed_response = "" # Track the last failure to display to user
+
     # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
-        # st.info(f"Generating prediction attempt {i+1}/{N_COTS}...") # REMOVED
         try:
-            # Using st.cache_data means this function must be deterministic, 
-            # so we use LLM's built-in temperature/stochasticity and a simple loop.
             response = chain.invoke({"event_text": event_text})
-            parsed_scores = parse_llm_json(response.content)
+            response_content = response.content
+            parsed_scores = parse_llm_json(response_content)
             
             if parsed_scores:
                 valid_predictions.append(parsed_scores)
-                # st.success(f"Prediction {i+1} successful and valid.") # REMOVED
             else:
-                # st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.") # REMOVED
+                # Parsing failed (reason logged in parse_llm_json). Save the output.
+                last_failed_response = response_content
+                print(f"Prediction attempt {i+1} failed validation. LLM output content (start):\n{response_content[:500]}...")
                 pass
                 
-        except Exception:
-            # st.error(f"Error during LLM Appraisal Prediction run {i+1}: {e}") # REMOVED
+        except Exception as e:
+            # Log invocation error
+            print(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
             pass
         
         # Small delay to potentially aid in CoT diversity
         time.sleep(0.5) 
 
     if not valid_predictions:
-        # st.error(f"All {N_COTS} LLM attempts failed to produce a valid prediction. Cannot proceed.") # REMOVED
-        return None
+        # Log final failure
+        print(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
+        # Return None for prediction result, and the content of the last failure
+        return (None, last_failed_response) 
 
     # Aggregation step (Self-Consistency)
     final_prediction = {}
@@ -354,9 +357,8 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
         # Calculate the mean (rounding to the nearest integer as the original scale is 1-9)
         final_prediction[key] = int(round(sum(scores) / len(scores)))
 
-    # st.success(f"✅ Self-Consistency complete. Aggregated result from {len(valid_predictions)} valid CoT runs.") # REMOVED
-    return {"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}
-
+    # Return the prediction result and an empty string for the failed response
+    return ({"motive_relevance_prediction": final_prediction, "n_cots_used": len(valid_predictions)}, "")
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
 # --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
@@ -762,9 +764,10 @@ def show_cross_rating_page():
             
             # --- Run LLM Prediction Silently and Early ---
             llm_prediction_result = None
+            last_failed_response = ""
             with st.spinner("Finalizing study submission (Running system checks in background)..."):
-                 # The function itself has been modified to remove internal st.info/st.success calls.
-                 llm_prediction_result = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
+                 # The function now returns a tuple: (result, last_failed_response)
+                 llm_prediction_result, last_failed_response = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
             if llm_prediction_result:
                 trial_data = {
@@ -796,11 +799,16 @@ def show_cross_rating_page():
                 else:
                     return # Keep user on the page if save failed
             else:
-                 st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. Please try again, or check the console for detailed LLM parsing errors.")
+                 st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. This usually means the LLM output was malformed (e.g., non-JSON, missing keys, or scores out of range).")
+                 
+                 if last_failed_response:
+                     st.subheader("Last Failed LLM Response (for debugging):")
+                     # Display the raw response that failed the parsing
+                     st.code(last_failed_response, language="json")
                  return
             
             st.rerun()
-
+            
 def show_thank_you_page():
     st.title("✅ Trial Complete")
     st.success("Your data has been successfully submitted and saved for the study.")
