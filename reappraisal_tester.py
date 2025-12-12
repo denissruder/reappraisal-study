@@ -638,7 +638,7 @@ def show_regulatory_only_page():
             st.session_state.page = 'motives' # Route to motives next            
             st.rerun()
 
-def show_motives_only_page():  
+def show_motives_only_page():
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
@@ -648,39 +648,53 @@ def show_motives_only_page():
         }
 
     with st.form("initial_assessment_form"):
-        st.subheader("General Motive Importance & Focuses")
+        st.markdown("### General Motive Importance & Focuses")
         st.markdown(f"""
-        Please rate the importance of the following {len(MOTIVES_FULL)} motives to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
+        Please rate the importance of the following **{len(MOTIVES_FULL)} motives** to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
         You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
         """)
         st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
+            # Motive Header (H4, styled with border in CSS)
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # Promotion Focus (NOW RADIO BUTTONS)
-            motive_scores[m['motive']]['Promotion'] = st.radio(
-                f"{m['Promotion']}",
-                options=RADIO_OPTIONS, 
-                index=motive_scores[m['motive']]['Promotion'] - 1, 
-                horizontal=True, 
-                key=f"gen_{m['motive']}_Promotion"
-            )
-            # Prevention Focus (NOW RADIO BUTTONS)
-            motive_scores[m['motive']]['Prevention'] = st.radio(
-                f"*{m['Prevention']}*",
-                options=RADIO_OPTIONS, 
-                index=motive_scores[m['motive']]['Prevention'] - 1, 
-                horizontal=True, 
-                key=f"gen_{m['motive']}_Prevention"
-            )
+            # --- START: New Side-by-Side Placement ---
+            # Create two equally sized columns inside the form
+            col1, col2 = st.columns(2) 
+            
+            with col1:
+                # Promotion Focus (NOW RADIO BUTTONS)
+                motive_scores[m['motive']]['Promotion'] = st.radio(
+                    # Making the label text bolder
+                    f"**Promotion Focus:** {m['Promotion']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Promotion'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Promotion"
+                )
+            
+            with col2:
+                # Prevention Focus (NOW RADIO BUTTONS)
+                motive_scores[m['motive']]['Prevention'] = st.radio(
+                    # Making the label text bolder
+                    f"**Prevention Focus:** {m['Prevention']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Prevention'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Prevention"
+                )
+            # --- END: New Side-by-Side Placement ---
+            
+            # Add a small visual divider to separate motive groups (optional, but helpful)
+            st.markdown("---") 
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' # Route to chat next
+            scroll_to_top_forced() 
             st.rerun()
-
-
+            
 def show_chat_page():
     st.header("🗣️ Event Interview")
     st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context. **You can stop the interview at any time by clicking the button below.**")
