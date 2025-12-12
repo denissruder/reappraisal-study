@@ -618,12 +618,12 @@ def show_regulatory_only_page():
             )
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
-            st.session_state.page = 'motives' # Route to motives next
-            scroll_to_top_forced()
+            st.session_state.page = 'motives' # Route to motives next            
             st.rerun()
 
 def show_motives_only_page():
     st.title("🎯 Initial Assessment: General Motive Profile")
+    scroll_to_top_forced()
     
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
