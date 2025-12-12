@@ -584,7 +584,7 @@ def show_regulatory_only_page():
             st.rerun()
 
 def show_motives_only_page():
-    st.title("Initial Assessment: General Motive Profile")
+    st.title("General Motive Profile")
     
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
@@ -608,7 +608,7 @@ def show_motives_only_page():
             
             # Promotion Focus (NOW RADIO BUTTONS)
             motive_scores[m['motive']]['Promotion'] = st.radio(
-                f"Promotion Focus: *{m['Promotion']}*",
+                f"{m['Promotion']}",
                 options=RADIO_OPTIONS, 
                 index=motive_scores[m['motive']]['Promotion'] - 1, 
                 horizontal=True, 
@@ -616,7 +616,7 @@ def show_motives_only_page():
             )
             # Prevention Focus (NOW RADIO BUTTONS)
             motive_scores[m['motive']]['Prevention'] = st.radio(
-                f"Prevention Focus: *{m['Prevention']}*",
+                f"*{m['Prevention']}*",
                 options=RADIO_OPTIONS, 
                 index=motive_scores[m['motive']]['Prevention'] - 1, 
                 horizontal=True, 
