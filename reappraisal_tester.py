@@ -856,9 +856,15 @@ def show_situation_rating_page():
             st.rerun()
 
 def show_cross_rating_page():
-    # --- Fetch a random story from the DB ---
-    random_situation = get_random_story_from_db()
-    
+    # --- Fetch/Load a random story from the DB (Only once) ---
+    # CRITICAL FIX: Load only once. Otherwise the story changes on every widget click.
+    if 'cross_participant_situation' not in st.session_state:
+        # Assuming get_random_story_from_db() is defined elsewhere
+        random_situation = get_random_story_from_db() 
+        st.session_state.cross_participant_situation = random_situation
+    else:
+        random_situation = st.session_state.cross_participant_situation
+        
     st.subheader("Event from Another Participant:")
     with st.container(border=True):
         st.info(random_situation)
@@ -875,39 +881,45 @@ def show_cross_rating_page():
         st.markdown("### Cross-Participant Appraisal")
         st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
         st.markdown(f"""
-        Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**
+        Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.
         """)
         st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
         cross_scores = st.session_state.cross_motive_scores
         
         for m in MOTIVES_FULL:
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
-                
+            # Set the HR to invisible for consistent spacing (as requested by user previously)
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
+            # Motive Definition (using 0.9rem font as previously agreed)
+            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 0px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True) 
+            
+            # Small vertical spacing
+            st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
+            
             # Create two equally sized columns inside the form
             col1, col2 = st.columns(2) 
                 
             with col1:
                 # Promotion Focus
-                motive_scores[m['motive']]['Promotion'] = st.radio(
-                    # Making the label text bolder
+                # FIX: Use cross_scores for assignment and indexing
+                cross_scores[m['motive']]['Promotion'] = st.radio(
                     f"{m['Promotion']}", 
                     options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Promotion'] - 1,
+                    index=cross_scores[m['motive']]['Promotion'] - 1, 
                     horizontal=True, 
-                    key=f"gen_{m['motive']}_Promotion"
+                    key=f"cross_{m['motive']}_Promotion"
                 )
                 
             with col2:
                 # Prevention Focus
-                motive_scores[m['motive']]['Prevention'] = st.radio(
-                    # Making the label text bolder
+                # FIX: Use cross_scores for assignment
+                # CRITICAL FIX: Use 'Prevention' for the index lookup
+                cross_scores[m['motive']]['Prevention'] = st.radio(
                     f"{m['Prevention']}", 
                     options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Promotion'] - 1,
+                    index=cross_scores[m['motive']]['Prevention'] - 1, # Fixed index lookup
                     horizontal=True, 
-                    key=f"gen_{m['motive']}_Prevention"
+                    key=f"cross_{m['motive']}_Prevention"
                 )
 
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
@@ -917,30 +929,22 @@ def show_cross_rating_page():
             llm_prediction_result = None
             last_failed_response = ""
             with st.spinner("Finalizing study submission (Running system checks in background)..."):
-                 # The function now returns a tuple: (result, last_failed_response)
-                 llm_prediction_result, last_failed_response = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
+                # Assuming llm, run_self_consistent_appraisal_prediction are globally available
+                llm_prediction_result, last_failed_response = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
             
             if llm_prediction_result:
+                # Assuming datetime, uuid, save_data are globally available
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc),
                     "participant_id": str(uuid.uuid4()), 
                     
-                    # Step 1 Data (26 baseline scores)
                     "baseline_motive_profile": st.session_state.general_motive_scores,
                     "baseline_regulatory_focus": st.session_state.reg_focus_scores,
-                    
-                    # Step 2 Data
                     "interview_qa_history": st.session_state.interview_answers, 
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
-                    
-                    # LLM Prediction Data (The LLM's Hypothesis - Self-Consistent 26 scores)
                     "llm_motive_relevance_prediction": llm_prediction_result.get('motive_relevance_prediction'),
                     "llm_n_cots_used": llm_prediction_result.get('n_cots_used'),
-                    
-                    # Step 3 Data (Original Author's Target - 26 scores)
                     "situation_motive_relevance_rating": st.session_state.situation_motive_scores,
-                    
-                    # Step 4 Data (Comparison Target - 26 scores)
                     "cross_participant_situation": st.session_state.cross_participant_situation,
                     "cross_participant_motive_rating": st.session_state.cross_motive_scores,
                 }
@@ -948,16 +952,17 @@ def show_cross_rating_page():
                 if save_data(trial_data):
                     st.session_state.page = 'thank_you'
                 else:
-                    return # Keep user on the page if save failed
+                    st.error("Data saving failed. Please try submitting again.")
+                    return 
             else:
-                 st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. This usually means the LLM output was malformed (e.g., non-JSON, missing keys, or scores out of range).")
-                 
-                 if last_failed_response:
-                     st.subheader("Last Failed LLM Response (for debugging):")
-                     # Display the raw response that failed the parsing
-                     st.code(last_failed_response, language="json")
-                 return
+                st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. This usually means the LLM output was malformed (e.g., non-JSON, missing keys, or scores out of range).")
+                
+                if last_failed_response:
+                    st.subheader("Last Failed LLM Response (for debugging):")
+                    st.code(last_failed_response, language="json")
+                return
             
+            scroll_to_top_forced() 
             st.rerun()
             
 def show_thank_you_page():
