@@ -14,58 +14,55 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
-# Inject minimal CSS for a cleaner, tighter look
-st.markdown("""
+.markdown("""
 <style>
 /* 1. Global Container/Form Spacing Reduction */
 .stForm {
     max-width: 900px;
     margin: 0 auto;
-    padding: 10px; /* Reduced form padding */
+    padding: 5px; /* Aggressively reduced form padding */
 }
-/* Aggressively reduces vertical space for all Streamlit components */
+/* Aggressively zero out vertical space for all internal blocks */
 div[data-testid="stVerticalBlock"],
 div[data-testid="stHorizontalBlock"] {
-    gap: 0.5rem; /* Reduce default gap */
+    gap: 0 !important; 
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* 2. Header Spacing Reduction */
 h1, h2, h3, h4 {
     margin-top: 0.5rem !important;
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.2rem !important; /* Minimal margin below headers */
     padding-top: 0.25rem !important;
     padding-bottom: 0.25rem !important;
 }
 
-/* 3. Style for motive headers (H4) specifically inside the form */
+/* 3. Style for motive headers (H4) inside the form */
 .stForm h4 {
-    margin-top: 10px !important; /* Reduced margin */
-    margin-bottom: 5px !important;
+    margin-top: 10px !important; 
+    margin-bottom: 5px !important; /* Minimal margin below motive title */
     padding-bottom: 3px !important;
     border-bottom: 1px solid #ddd;
 }
 
-/* 4. Radio Button Vertical Gap Reduction */
+/* 4. Radio Button Spacing Fixes */
 div[data-testid^="stRadio"] {
-    margin-bottom: 0.25rem; /* Tighten up vertical spacing between motive groups */
+    margin-bottom: 5px !important; /* Minimal margin below radio group */
 }
 
-/* Target the container for horizontal radio buttons */
+/* Horizontal Radio Button Gap Reduction */
 div[role="radiogroup"] {
-    /* Reduce the internal flex gap of the container */
     gap: 0px !important; 
 }
-
-/* Target the individual radio labels inside the container */
 div[role="radiogroup"] label {
-    /* Reduce space after each option to the minimal amount */
     margin-right: 5px !important; 
     padding: 0px !important;
 }
 
 /* 5. Reduce spacing around the submit button */
 div[data-testid="stFormSubmitButton"] {
-    padding-top: 10px; /* Reduced padding above button */
+    padding-top: 5px; 
     padding-bottom: 5px;
 }
 </style>
@@ -657,18 +654,16 @@ def show_motives_only_page():
 
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            # Motive Header (H4, styled with border in CSS)
             st.markdown(f"#### Motive: {m['motive']}")
             
-            # --- START: New Side-by-Side Placement ---
             # Create two equally sized columns inside the form
             col1, col2 = st.columns(2) 
             
             with col1:
-                # Promotion Focus (NOW RADIO BUTTONS)
+                # Promotion Focus
                 motive_scores[m['motive']]['Promotion'] = st.radio(
                     # Making the label text bolder
-                    f"**Promotion Focus:** {m['Promotion']}", 
+                    f"{m['Promotion']}", 
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Promotion'] - 1, 
                     horizontal=True, 
@@ -676,19 +671,15 @@ def show_motives_only_page():
                 )
             
             with col2:
-                # Prevention Focus (NOW RADIO BUTTONS)
+                # Prevention Focus
                 motive_scores[m['motive']]['Prevention'] = st.radio(
                     # Making the label text bolder
-                    f"**Prevention Focus:** {m['Prevention']}", 
+                    f"{m['Prevention']}", 
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Prevention'] - 1, 
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Prevention"
                 )
-            # --- END: New Side-by-Side Placement ---
-            
-            # Add a small visual divider to separate motive groups (optional, but helpful)
-            # st.markdown("---") 
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' # Route to chat next
