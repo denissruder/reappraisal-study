@@ -14,44 +14,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
-def scroll_to_top_forced():
-    """
-    Triggers a programmatic click on the page's main title anchor link 
-    to force the browser to scroll to the top using native HTML behavior.
-    """
-    
-    # 1. Increment the counter to force re-render (CRITICAL for st.markdown to work every time)
-    st.session_state.scroll_counter += 1
-    
-    # 2. Define the script to find and click the target anchor.
-    # The target is the header anchor link that Streamlit creates.
-    # We use a CSS selector that targets the anchor link whose href ends with the page title anchor.
-    # The page title anchor is usually the first title encountered on the page.
-    scroll_script = f"""
-    <div style="height:0px;"></div>
-    <script>
-        // Short delay (50ms) to ensure the header element is fully in the DOM.
-        setTimeout(function() {{
-            
-            // The specific ID of the element we want to scroll to is the main title ID.
-            // We search for an anchor link (<a>) whose href points to that ID.
-            // Since Streamlit generates headers dynamically, the ID of the first st.title is used.
-            const targetAnchor = window.parent.document.querySelector('a[href*="#initial-assessment-general-motive-profile"]');
-
-            if (targetAnchor) {{
-                targetAnchor.click();
-                console.log('Forced scroll via anchor click. Counter: {st.session_state.scroll_counter}');
-            }} else {{
-                // Fallback to the native window scroll if the specific anchor isn't found
-                window.parent.scrollTo({{ top: 0, behavior: 'instant' }});
-                console.log('Forced scroll via window.scrollTo fallback. Counter: {st.session_state.scroll_counter}');
-            }}
-        }}, 50); // Shorter delay since we are relying on a simple click event
-    </script>
-    """
-    # 3. Use st.markdown. The unique f-string content forces the component to render every time.
-    st.markdown(scroll_script, unsafe_allow_html=True)
-
 # --- 1. CONFIGURATION & SETUP ---
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -622,8 +584,7 @@ def show_regulatory_only_page():
             st.rerun()
 
 def show_motives_only_page():
-    st.title("🎯 Initial Assessment: General Motive Profile")
-    scroll_to_top_forced()
+    st.title("Initial Assessment: General Motive Profile")
     
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
@@ -919,9 +880,6 @@ def show_thank_you_page():
         st.rerun()
 
 # --- 5. MAIN APP EXECUTION ---
-if 'scroll_counter' not in st.session_state:
-    st.session_state.scroll_counter = 0
-    
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
 
