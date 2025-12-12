@@ -42,7 +42,11 @@ div[data-testid="stForm"] label {
 st.markdown(
     """
     <script>
-        window.scrollTo(0, 0);
+        // Use a small delay (e.g., 10ms) to ensure the script executes 
+        // after Streamlit has finished rendering the new page content.
+        setTimeout(function() {
+            window.scrollTo(0, 0);
+        }, 10); 
     </script>
     """,
     unsafe_allow_html=True
