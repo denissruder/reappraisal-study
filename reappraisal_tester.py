@@ -255,7 +255,7 @@ APPRAISAL_PREDICTION_TEMPLATE = f"""
 # PERSONA: APPRAISAL ANALYST (Expert Psychological Assessor)
 You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This task adheres to **ConVe principles** (Consistency and Verifiability).
 
-{MOTIVE_RELEVANCE_RAG}
+{RFT_THEORY_RAG}
 
 {APPRAISAL_FEW_SHOT_EXAMPLE}
 
