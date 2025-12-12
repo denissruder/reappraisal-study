@@ -23,9 +23,7 @@ st.markdown("""
     margin: 0 auto;
     padding: 5px; 
 }
-/* *** FIX FOR OVERLAP *** Set a minimal, non-zero gap for all internal blocks. 
-   We keep margin/padding at 0 to control spacing via specific elements. 
-*/
+/* Aggressively zero out vertical space for all internal blocks */
 div[data-testid="stVerticalBlock"],
 div[data-testid="stHorizontalBlock"] {
     gap: 0.25rem !important; /* Minimal vertical space (4px) */
@@ -49,13 +47,24 @@ h1, h2, h3, h4 {
     border-bottom: 1px solid #ddd;
 }
 
-/* 4. Radio Button Spacing Fixes */
-/* CRITICAL FIX: Add a bottom margin to the radio block to separate it from the next motive group */
+/* 4. Column Border Fix */
+/* CRITICAL: Target the second column in the row to apply a left border. 
+   Streamlit columns are internally represented as horizontal blocks.
+   We select the second horizontal block (column) of the current row.
+*/
+div[data-testid="stHorizontalBlock"]:nth-child(2) {
+    border-left: 1px solid #ccc; /* Light grey vertical border */
+    padding-left: 10px; /* Add padding to push content away from the border */
+}
+/* Ensure the first column also has padding for balance */
+div[data-testid="stHorizontalBlock"]:nth-child(1) {
+    padding-right: 10px; 
+}
+
+/* 5. Radio Button Spacing Fixes */
 div[data-testid^="stRadio"] {
     margin-bottom: 10px !important; 
 }
-
-/* Horizontal Radio Button Gap Reduction */
 div[role="radiogroup"] {
     gap: 0px !important; 
 }
@@ -64,7 +73,7 @@ div[role="radiogroup"] label {
     padding: 0px !important;
 }
 
-/* 5. Reduce spacing around the submit button */
+/* 6. Submit Button Spacing */
 div[data-testid="stFormSubmitButton"] {
     padding-top: 5px; 
     padding-bottom: 5px;
