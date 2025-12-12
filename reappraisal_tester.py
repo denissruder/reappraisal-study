@@ -919,6 +919,9 @@ def show_thank_you_page():
         st.rerun()
 
 # --- 5. MAIN APP EXECUTION ---
+if 'scroll_counter' not in st.session_state:
+    st.session_state.scroll_counter = 0
+    
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
 
