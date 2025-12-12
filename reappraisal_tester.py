@@ -625,6 +625,7 @@ def show_regulatory_only_page():
 
     with st.form("regulatory_assessment_form"):
         st.subheader("Regulatory Focus (General Tendency)")
+        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
         st.markdown(f"Please indicate how true the following **{len(REG_FOCUS_ITEMS)} statements** are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
         st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
         
@@ -634,7 +635,7 @@ def show_regulatory_only_page():
         # enumerate provides the 0-based index (i), which we use for the key, 
         # and the item string, which is used for the dictionary key and display.
         for i, item in enumerate(REG_FOCUS_ITEMS):
-            
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             # The display index is i+1, ensuring continuous numbering from 1 to 18.
             st.session_state.reg_focus_scores[item] = st.radio(
                 f"**{i+1}.** {item}", 
