@@ -38,6 +38,48 @@ div[data-testid="stForm"] label {
 </style>
 """, unsafe_allow_html=True)
 
+def scroll_to_top_forced():
+    """
+    Increments a counter and injects JavaScript to force a scroll to the top.
+    Uses st.markdown with dynamically unique script content and a long delay (500ms)
+    to prevent Streamlit component caching and win the scroll race condition.
+    """
+    
+    # 1. Increment the counter to force re-render (CRITICAL for st.markdown to work every time)
+    st.session_state.scroll_counter += 1
+    
+    # 2. Inject the most robust script with the counter embedded
+    scroll_script = f"""
+    <div style="height:0px;"></div>
+    <script>
+        // CRITICAL: Increased delay (500ms) to ensure the DOM has finished rendering the new page content.
+        setTimeout(function() {{
+            
+            // Attempt 1: Target the main scrollable container from the parent window's context
+            const mainScrollContainer = window.parent.document.querySelector('.main');
+            
+            if (mainScrollContainer) {{
+                // Force the scroll position directly
+                mainScrollContainer.scrollTop = 0; 
+                
+                // Fallback: If direct scrollTop=0 fails, use scrollIntoView on the first visible element
+                if (mainScrollContainer.scrollTop !== 0 && mainScrollContainer.firstElementChild) {{
+                    mainScrollContainer.firstElementChild.scrollIntoView({{ behavior: 'instant', block: 'start' }});
+                }}
+                
+                console.log('Forced scroll via parent .main. Counter: {st.session_state.scroll_counter}');
+            }} else {{
+                // Fallback 2: Try the window object (usually fails in Streamlit, but safest option)
+                window.scrollTo(0, 0);
+                console.log('Forced scroll via window. Counter: {st.session_state.scroll_counter}');
+            }}
+        }}, 500); // Wait 500 milliseconds (0.5 second)
+    </script>
+    """
+    # 3. Use st.markdown. The unique f-string content (which includes the counter) 
+    # forces Streamlit to render the component every time.
+    st.markdown(scroll_script, unsafe_allow_html=True)
+
 # --- 1. CONFIGURATION & SETUP ---
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -918,8 +960,10 @@ def show_thank_you_page():
         st.session_state.page = 'consent' # Route back to the start
         st.rerun()
 
-
 # --- 5. MAIN APP EXECUTION ---
+if 'scroll_counter' not in st.session_state:
+    st.session_state.scroll_counter = 0
+
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
 
