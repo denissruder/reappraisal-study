@@ -373,16 +373,32 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     Returns the aggregated prediction or (None, last_failed_response_content) on failure.
     """
     
-    # ... (prompt definition remains the same) ...
+    # Assuming prompt and chain setup are done before this function call 
+    # OR that the prompt setup is moved inside this function (recommended for LangChain)
+    prompt = PromptTemplate(
+        input_variables=["event_text", "required_keys"], 
+        template=APPRAISAL_PREDICTION_TEMPLATE
+    )
+    chain = prompt | llm_instance
+    
+    # Placeholder for N_COTS (must be defined globally, e.g., N_COTS = 5)
+    # The snippet doesn't show N_COTS, but it's required for the loop.
+    N_COTS = 5 
     
     valid_predictions = []
-    collected_reasoning = "" # <<< NEW: Variable to store reasoning
+    collected_reasoning = "" 
     last_failed_response = "" 
 
     # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
         try:
-            # ... (chain.invoke call) ...
+            st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
+            
+            # Invoke chain with both variables
+            response = chain.invoke({
+                "event_text": event_text, 
+                "required_keys": JSON_KEYS_LIST # Assuming JSON_KEYS_LIST is globally defined
+            })
             
             response_content = response.content
             
@@ -390,41 +406,48 @@ def run_self_consistent_appraisal_prediction(llm_instance, event_text):
                 st.warning(f"DEBUG: Attempt {i+1} received an empty response.")
                 continue
 
-            # NEW: parse_llm_json now returns a tuple (scores, reasoning)
-            parsed_scores, current_reasoning = parse_llm_json(response_content, attempt_number=i+1)
+            # parse_llm_json returns a tuple (scores, reasoning)
+            parsed_scores, current_reasoning = parse_llm_json(response_content, attempt_number=i+1) 
 
             if parsed_scores:
                 valid_predictions.append(parsed_scores)
                 st.success(f"Prediction {i+1} successful and valid.")
                 
-                # NEW: Capture reasoning from the first successful run
+                # Capture reasoning from the first successful run
                 if not collected_reasoning:
                      collected_reasoning = current_reasoning
 
             else:
                 st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.")
                 last_failed_response = response_content 
-                
-        # ... (rest of the try/except block remains the same) ...
         
+        except Exception as e:
+            # THIS IS THE MISSING BLOCK
+            st.error(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
+            last_failed_response = f"Invocation failed: {e}" 
+        
+        time.sleep(0.5) 
+
     if not valid_predictions:
         st.error(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
         return (None, last_failed_response) 
 
     # Aggregation step (Self-Consistency)
     final_prediction = {}
-    for key in MOTIVE_SCORE_KEYS:
+    # Assuming MOTIVE_SCORE_KEYS is globally defined
+    for key in MOTIVE_SCORE_KEYS: 
         scores = [p[key] for p in valid_predictions]
         final_prediction[key] = int(round(sum(scores) / len(scores)))
 
-    # NEW: Add the collected reasoning to the final result dictionary
+    # Add the collected reasoning to the final result dictionary
     final_result = {
         "motive_relevance_prediction": final_prediction, 
         "n_cots_used": len(valid_predictions),
-        "llm_appraisal_reasoning": collected_reasoning
+        "llm_appraisal_reasoning": collected_reasoning 
     }
     
-    return (final_result, "")    
+    return (final_result, "")
+    
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
 # --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
