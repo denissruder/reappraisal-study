@@ -600,6 +600,8 @@ def save_data(data):
 def show_consent_page():
     """Renders the Letter of Consent page."""
     st.title("📄 Letter of Consent")
+    st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
+
     st.markdown("""
     Welcome to the Cognitive Repurposing Study. Before we begin, please review the following information.
 
