@@ -13,15 +13,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 # --- 0. Streamlit UI Setup ---
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
-This is a great task for custom CSS. To make everything smaller and reduce the vertical gaps, we need to aggressively target the margins and padding of the Streamlit elements, especially the headers and the blocks that hold your radio buttons.
-
-Here is a two-part fix:
-1. Update the Global CSS (Crucial for Spacing)
-
-You need to update the st.markdown block that injects the CSS at the very start of your reappraisal_tester.py file.
-
-Replace your entire initial CSS injection block with this one:
-Python
 
 # Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
