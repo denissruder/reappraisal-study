@@ -288,7 +288,8 @@ def get_random_story_from_db():
         if stories:
             return random.choice(stories)
         else:
-            return "No complete event narratives found in the database. Using a fallback placeholder."
+            placeholder = "I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team."
+            return placeholder
             
     except Exception as e:
         st.warning(f"Failed to fetch random story from database: {e}. Using a fallback placeholder.")
