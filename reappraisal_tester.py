@@ -303,15 +303,20 @@ APPRAISAL_PREDICTION_TEMPLATE = f"""
 # PERSONA: APPRAISAL ANALYST (Expert Psychological Assessor)
 You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This task adheres to **ConVe principles** (Consistency and Verifiability).
 
+--- RAG---
 {RFT_THEORY_RAG}
 
+--- Few-Shot Example ---
 {APPRAISAL_FEW_SHOT_EXAMPLE}
 
---- TASK INSTRUCTIONS ---
+--- COT ---
 1. **Analyze:** Carefully review the SITUATION DESCRIPTION below.
-2. **Chain-of-Thought (CoT):** You MUST provide your step-by-step reasoning within a <REASONING> block.
-3. **Rating Scale:** Use the 1 (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
-4. **Output Format:** The output MUST be a valid JSON object. It MUST start with the key "motive_relevance_prediction". The inner dictionary MUST contain **all 26 keys** listed below, with a score from 1 to {RATING_SCALE_MAX}.
+2. **You MUST provide your step-by-step reasoning within a <REASONING> block.**
+
+--- COVe
+1. Make sure that all ratings are on a scale from {RATING_SCALE_MAX} (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
+2. **Output Format:** The output MUST be a valid JSON object. It MUST start with the key "motive_relevance_prediction". The inner dictionary MUST contain **all 26 keys** listed below, with a score from 1 to {RATING_SCALE_MAX}.
+3. Make sure all the reasoning is ethnical
 
 REQUIRED JSON KEYS (26 total): {{required_keys}}
 
