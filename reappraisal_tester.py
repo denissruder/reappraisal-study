@@ -6,7 +6,6 @@ import uuid
 import time
 import random
 import re
-import streamlit.components.v1 as components
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
@@ -37,44 +36,6 @@ div[data-testid="stForm"] label {
 }
 </style>
 """, unsafe_allow_html=True)
-
-def scroll_to_top_forced():
-    """
-    Increments a counter and injects JavaScript to force a scroll to the top.
-    Uses an aggressive 750ms delay and the most direct window-level scroll command 
-    to win the race condition against Streamlit's internal rendering/scroll reset.
-    """
-    
-    # 1. Increment the counter to force re-render (CRITICAL for st.markdown to work every time)
-    st.session_state.scroll_counter += 1
-    
-    # 2. Inject the most robust script with the counter embedded
-    scroll_script = f"""
-    <div style="height:0px;"></div>
-    <script>
-        // CRITICAL: Increased delay to 750ms to ensure the new page is fully rendered 
-        // and Streamlit's internal scroll reset logic is complete.
-        setTimeout(function() {{
-            
-            // Attempt 1: Most aggressive top-level scroll on the parent window (best chance of success)
-            // This bypasses Streamlit's internal containers and targets the main viewport.
-            window.parent.scrollTo({{ top: 0, behavior: 'instant' }});
-
-            // Fallback: If the above fails (e.g., in a strict iframe/component setup), try the .main selector
-            const mainScrollContainer = window.parent.document.querySelector('.main');
-            
-            if (mainScrollContainer) {{
-                // Force the scroll position directly
-                mainScrollContainer.scrollTop = 0; 
-                console.log('Forced scroll via parent .main fallback. Counter: {st.session_state.scroll_counter}');
-            }}
-            
-            console.log('Forced scroll via window.parent.scrollTo. Counter: {st.session_state.scroll_counter}');
-        }}, 750); // Wait 750 milliseconds
-    </script>
-    """
-    # 3. Use st.markdown. The unique f-string content forces the component to render every time.
-    st.markdown(scroll_script, unsafe_allow_html=True)
 
 # --- 1. CONFIGURATION & SETUP ---
 
@@ -657,7 +618,6 @@ def show_regulatory_only_page():
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
             st.session_state.page = 'motives' # Route to motives next
-            scroll_to_top_forced()
             st.rerun()
 
 def show_motives_only_page():
@@ -957,9 +917,6 @@ def show_thank_you_page():
         st.rerun()
 
 # --- 5. MAIN APP EXECUTION ---
-if 'scroll_counter' not in st.session_state:
-    st.session_state.scroll_counter = 0
-
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
 
