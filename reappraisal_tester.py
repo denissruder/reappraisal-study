@@ -812,7 +812,7 @@ def show_situation_rating_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
-    with st.form("initial_assessment_form"):
+    with st.form("situation_rating_form"):
         st.markdown("### Situation Appraisal: Your Perspectives")
         st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
         st.markdown(f"""
@@ -821,7 +821,7 @@ def show_situation_rating_page():
         """)
         st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
-        motive_scores = st.session_state.general_motive_scores
+        motive_scores = st.session_state.situation_motive_scores
         for m in MOTIVES_FULL:
             st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
@@ -856,14 +856,10 @@ def show_situation_rating_page():
             st.rerun()
 
 def show_cross_rating_page():
-    """Renders the cross-participant rating task (Step 4) and triggers the Self-Consistent LLM prediction (Step 5)."""
-    st.title("👥 Cross-Participant Appraisal (26 Scores)")
-    st.markdown("Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.")
-
     # --- Fetch a random story from the DB ---
     random_situation = get_random_story_from_db()
     
-    st.subheader("Situation from Another Participant:")
+    st.subheader("Event from Another Participant:")
     with st.container(border=True):
         st.info(random_situation)
 
@@ -876,32 +872,43 @@ def show_cross_rating_page():
         }
 
     with st.form("cross_rating_form"):
+        st.markdown("### Cross-Participant Appraisal")
+        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
         st.markdown(f"""
-        Please rate the relevance of the situation above on a scale of 1 to {RATING_SCALE_MAX}, 
-        based on what you think the **original author felt** (their perspective). You must provide **two scores** for each motive.
+        Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**
         """)
+        st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
         cross_scores = st.session_state.cross_motive_scores
-        for m in MOTIVES_FULL:
-            st.markdown(f"#### Motive: {m['motive']}")
+       for m in MOTIVES_FULL:
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
             
-            # Promotion Focus Relevance (NOW RADIO BUTTONS)
-            cross_scores[m['motive']]['Promotion'] = st.radio(
-                f"Relevance to Promotion Focus: *{m['Promotion']}* (The author's perspective)",
-                options=RADIO_OPTIONS, 
-                index=cross_scores[m['motive']]['Promotion'] - 1, 
-                horizontal=True, 
-                key=f"cross_{m['motive']}_Promotion"
-            )
-            # Prevention Focus Relevance (NOW RADIO BUTTONS)
-            cross_scores[m['motive']]['Prevention'] = st.radio(
-                f"Relevance to Prevention Focus: *{m['Prevention']}* (The author's perspective)",
-                options=RADIO_OPTIONS, 
-                index=cross_scores[m['motive']]['Prevention'] - 1, 
-                horizontal=True, 
-                key=f"cross_{m['motive']}_Prevention"
-            )
-        
+            # Create two equally sized columns inside the form
+            col1, col2 = st.columns(2) 
+            
+            with col1:
+                # Promotion Focus
+                motive_scores[m['motive']]['Promotion'] = st.radio(
+                    # Making the label text bolder
+                    f"{m['Promotion']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Promotion'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Promotion"
+                )
+            
+            with col2:
+                # Prevention Focus
+                motive_scores[m['motive']]['Prevention'] = st.radio(
+                    # Making the label text bolder
+                    f"{m['Prevention']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Prevention'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Prevention"
+                )
+
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
             st.session_state.cross_participant_situation = random_situation
             
