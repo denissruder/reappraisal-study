@@ -38,45 +38,6 @@ div[data-testid="stForm"] label {
 </style>
 """, unsafe_allow_html=True)
 
-def scroll_to_top_forced():
-    """
-    Increments a counter and injects JavaScript to force a scroll to the top.
-    Uses an aggressive delay and dynamic key to prevent Streamlit optimization.
-    """
-    
-    # 1. Increment the counter to force re-render
-    st.session_state.scroll_counter += 1
-    
-    # 2. Inject the most robust script with the counter embedded
-    scroll_script = f"""
-    <script>
-        // CRITICAL: Increased delay (200ms) to ensure the DOM has finished rendering the new page content.
-        setTimeout(function() {{
-            // Attempt 1: Target the main scrollable container from the parent window's context
-            const mainScrollContainer = window.parent.document.querySelector('.main');
-            
-            if (mainScrollContainer) {{
-                // Use scrollIntoView on the *first child* of the main container (more aggressive scroll)
-                mainScrollContainer.firstElementChild.scrollIntoView({{ behavior: 'instant', block: 'start' }});
-                console.log('Forced scroll via parent .main.firstElementChild. Counter: {st.session_state.scroll_counter}');
-            }} else {{
-                // Attempt 2: Fallback to the stAppViewBlock (standard Streamlit content container)
-                const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
-                if (appViewContainer) {{
-                    appViewContainer.scrollTop = 0; // Fallback to setting scrollTop
-                    console.log('Forced scroll via stAppViewBlock. Counter: {st.session_state.scroll_counter}');
-                }} else {{
-                    // Attempt 3: Window scroll fallback
-                    window.scrollTo(0, 0);
-                    console.log('Forced scroll via window. Counter: {st.session_state.scroll_counter}');
-                }}
-            }}
-        }}, 200); // Wait 200 milliseconds
-    </script>
-    """
-    # 3. CRITICAL: Add a dynamic key to components.html to force re-rendering on every run
-    components.html(scroll_script, height=0, key=f"scroll_{st.session_state.scroll_counter}")
-
 # --- 1. CONFIGURATION & SETUP ---
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -959,9 +920,6 @@ def show_thank_you_page():
 
 
 # --- 5. MAIN APP EXECUTION ---
-if 'scroll_counter' not in st.session_state:
-    st.session_state.scroll_counter = 0
-    
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
 
