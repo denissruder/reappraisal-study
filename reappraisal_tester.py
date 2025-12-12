@@ -574,20 +574,6 @@ def show_consent_page():
     
     if st.button("I Consent", type="primary"):
         st.session_state.page = 'regulatory'
-        # --- Inject Scroll Script Here ---
-        scroll_script = """
-        <script>
-            // Target the main scrollable container from the parent window's context
-            const scrollableElement = window.parent.document.querySelector('.main');
-            if (scrollableElement) {
-                scrollableElement.scrollTop = 0;
-            }
-        </script>
-        """
-        # Inject the HTML component (iframe) with the scroll script.
-        # Setting height=0 makes it invisible. This forces the script to execute.
-        components.html(scroll_script, height=0)
-        # --- End Scroll Script Injection ---
         st.rerun()
 
 def show_regulatory_only_page():
@@ -633,20 +619,6 @@ def show_regulatory_only_page():
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
             st.session_state.page = 'motives' # Route to motives next
-            # --- Inject Scroll Script Here ---
-            scroll_script = """
-            <script>
-                // Target the main scrollable container from the parent window's context
-                const scrollableElement = window.parent.document.querySelector('.main');
-                if (scrollableElement) {
-                    scrollableElement.scrollTop = 0;
-                }
-            </script>
-            """
-            # Inject the HTML component (iframe) with the scroll script.
-            # Setting height=0 makes it invisible. This forces the script to execute.
-            components.html(scroll_script, height=0)
-            # --- End Scroll Script Injection ---
             st.rerun()
 
 def show_motives_only_page():
