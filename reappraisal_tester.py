@@ -15,13 +15,13 @@ from langchain_core.messages import HumanMessage, AIMessage
 # Set wide layout and title for better form visibility
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
-# Inject minimal CSS and the Scroll Script in a single block for execution consistency
+# Inject minimal CSS and the highly robust Scroll Script in a single block
 st.markdown("""
 <style>
 /* Adjust container width for forms */
 .stForm {
-    max-width: 900px; /* Keep this to limit form width */
-    margin: 0 auto;  /* This centers the form element */
+    max-width: 900px;
+    margin: 0 auto;
     padding: 20px;
 }
 /* Style for motive headers in forms */
@@ -37,15 +37,21 @@ div[data-testid="stForm"] label {
 </style>
 <script>
     // CRITICAL FIX: Use a small delay (10ms) to ensure the script executes 
-    // after the content has been re-rendered and the container is ready.
+    // after the content has been fully rendered.
     setTimeout(function() {
-        // Target the primary Streamlit view container (most reliable selector)
-        const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
-        
-        if (appViewContainer) {
-            appViewContainer.scrollTop = 0;
-        } else {
-            // Fallback to scrolling the entire window if the container is not found
+        try {
+            // MOST AGGRESSIVE FIX: Target the main scrollable container 
+            // from the perspective of the parent window's document. This bypasses many rendering issues.
+            const scrollableElement = window.parent.document.querySelector('.main');
+            
+            if (scrollableElement) {
+                scrollableElement.scrollTop = 0;
+            } else {
+                // Fallback 1: Target the current window's main app view container
+                document.querySelector('[data-testid="stAppViewBlock"]').scrollTop = 0;
+            }
+        } catch (e) {
+            // Fallback 2: Target the entire browser window (least reliable but covers all cases)
             window.scrollTo(0, 0); 
         }
     }, 10); 
