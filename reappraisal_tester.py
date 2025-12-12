@@ -789,7 +789,7 @@ def show_situation_rating_page():
             
             # Promotion Focus Relevance (NOW RADIO BUTTONS)
             situation_scores[m['motive']]['Promotion'] = st.radio(
-                f"Relevance to Promotion Focus: *{m['promotion']}*",
+                f"Relevance to Promotion Focus: *{m['Promotion']}*",
                 options=RADIO_OPTIONS, 
                 index=situation_scores[m['motive']]['Promotion'] - 1, 
                 horizontal=True, 
@@ -797,7 +797,7 @@ def show_situation_rating_page():
             )
             # Prevention Focus Relevance (NOW RADIO BUTTONS)
             situation_scores[m['motive']]['Prevention'] = st.radio(
-                f"Relevance to Prevention Focus: *{m['prevention']}*",
+                f"Relevance to Prevention Focus: *{m['Prevention']}*",
                 options=RADIO_OPTIONS, 
                 index=situation_scores[m['motive']]['Prevention'] - 1, 
                 horizontal=True, 
@@ -840,7 +840,7 @@ def show_cross_rating_page():
             
             # Promotion Focus Relevance (NOW RADIO BUTTONS)
             cross_scores[m['motive']]['Promotion'] = st.radio(
-                f"Relevance to Promotion Focus: *{m['promotion']}* (The author's perspective)",
+                f"Relevance to Promotion Focus: *{m['Promotion']}* (The author's perspective)",
                 options=RADIO_OPTIONS, 
                 index=cross_scores[m['motive']]['Promotion'] - 1, 
                 horizontal=True, 
@@ -848,7 +848,7 @@ def show_cross_rating_page():
             )
             # Prevention Focus Relevance (NOW RADIO BUTTONS)
             cross_scores[m['motive']]['Prevention'] = st.radio(
-                f"Relevance to Prevention Focus: *{m['prevention']}* (The author's perspective)",
+                f"Relevance to Prevention Focus: *{m['Prevention']}* (The author's perspective)",
                 options=RADIO_OPTIONS, 
                 index=cross_scores[m['motive']]['Prevention'] - 1, 
                 horizontal=True, 
