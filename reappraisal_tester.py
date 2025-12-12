@@ -102,10 +102,6 @@ PREVENTION_GOALS_RAG_STRING = "\n".join([
     for motive in MOTIVES_GOALS
 ])
 
-# Indices (0-based) for grouping Regulatory Focus Items (9 Promotion, 9 Prevention)
-PROMOTION_ITEMS_0_BASED = [2, 4, 5, 7, 11, 13, 15, 16, 17]
-PREVENTION_ITEMS_0_BASED = [0, 1, 3, 6, 8, 9, 10, 12, 14]
-
 # --- FOR STREAMLIT PAGE LOGIC ---
 MOTIVES_FULL = []
 for motive, promotion_goal, prevention_goal, _ in MOTIVES_GOALS:
@@ -563,38 +559,29 @@ def show_regulatory_only_page():
 
     with st.form("regulatory_assessment_form"):
         st.subheader("Regulatory Focus (General Tendency)")
-        st.markdown(f"Please indicate how true the following {len(REG_FOCUS_ITEMS)} statements are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
+        st.markdown(f"Please indicate how true the following **{len(REG_FOCUS_ITEMS)} statements** are of you **in general** on a scale of 1 to {RATING_SCALE_MAX}.")
         st.markdown(f"**1 = Not At All True of Me** | **{RATING_SCALE_MAX} = Very True of Me**")
         
         reg_focus_scores = st.session_state.reg_focus_scores
         
-        # --- PREVENTION FOCUS ITEMS (Avoiding negative outcomes) ---
-        st.markdown("#### 1. Prevention Focus (Focus on obligations, safety, and avoiding negative outcomes)")
-        for i in PREVENTION_ITEMS_0_BASED:
-            item = REG_FOCUS_ITEMS[i]
-            st.session_state.reg_focus_scores[item] = st.radio(
-                f"**{i+1}.** {item}", 
-                options=RADIO_OPTIONS, 
-                index=reg_focus_scores[item] - 1, 
-                horizontal=True, 
-                key=f"reg_focus_{i}"
-            )
+        # --- Loop through all 18 items sequentially (FIXED) ---
+        # enumerate provides the 0-based index (i), which we use for the key, 
+        # and the item string, which is used for the dictionary key and display.
+        for i, item in enumerate(REG_FOCUS_ITEMS):
             
-        # --- PROMOTION FOCUS ITEMS (Achieving positive outcomes) ---
-        st.markdown("#### 2. Promotion Focus (Focus on hopes, achievements, and positive outcomes)")
-        for i in PROMOTION_ITEMS_0_BASED:
-            item = REG_FOCUS_ITEMS[i]
+            # The display index is i+1, ensuring continuous numbering from 1 to 18.
             st.session_state.reg_focus_scores[item] = st.radio(
                 f"**{i+1}.** {item}", 
                 options=RADIO_OPTIONS, 
+                # index logic is correct: score minus 1
                 index=reg_focus_scores[item] - 1, 
                 horizontal=True, 
                 key=f"reg_focus_{i}"
             )
-
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
             st.session_state.page = 'motives' # Route to motives next
+            scroll_to_top_forced()
             st.rerun()
 
 def show_motives_only_page():
