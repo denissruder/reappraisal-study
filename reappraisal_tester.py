@@ -37,6 +37,16 @@ div[data-testid="stForm"] label {
 </style>
 """, unsafe_allow_html=True)
 
+# This ensures the user is always at the top of the new page, which is helpful
+# when navigating from a long page (like a rating form) to a new one.
+st.markdown(
+    """
+    <script>
+        window.scrollTo(0, 0);
+    </script>
+    """,
+    unsafe_allow_html=True
+)
 
 # --- 1. CONFIGURATION & SETUP ---
 
@@ -940,14 +950,3 @@ elif st.session_state.page == 'cross_rating':
     show_cross_rating_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
-
-# This ensures the user is always at the top of the new page, which is helpful
-# when navigating from a long page (like a rating form) to a new one.
-st.markdown(
-    """
-    <script>
-        window.scrollTo(0, 0);
-    </script>
-    """,
-    unsafe_allow_html=True
-)
