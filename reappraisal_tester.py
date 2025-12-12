@@ -50,9 +50,17 @@ div[data-testid^="stRadio"] {
     margin-bottom: 0.25rem; /* Tighten up vertical spacing between motive groups */
 }
 
-/* Reduce space between radio options for horizontal layout (existing rule, slightly reduced) */
-div[data-testid="stForm"] label {
-    margin-right: 10px; 
+/* Target the container for horizontal radio buttons */
+div[role="radiogroup"] {
+    /* Reduce the internal flex gap of the container */
+    gap: 0px !important; 
+}
+
+/* Target the individual radio labels inside the container */
+div[role="radiogroup"] label {
+    /* Reduce space after each option to the minimal amount */
+    margin-right: 5px !important; 
+    padding: 0px !important;
 }
 
 /* 5. Reduce spacing around the submit button */
