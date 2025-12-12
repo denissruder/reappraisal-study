@@ -700,7 +700,6 @@ def show_motives_only_page():
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' # Route to chat next
-            scroll_to_top_forced() 
             st.rerun()
             
 def show_chat_page():
