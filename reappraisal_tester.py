@@ -851,8 +851,8 @@ def show_situation_rating_page():
                     key=f"gen_{m['motive']}_Prevention"
                 )
 
-        if st.form_submit_button("Next: Start Interview", type="primary"):
-            st.session_state.page = 'chat' # Route to chat next
+        if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
+            st.session_state.page = 'cross_rating'
             st.rerun()
 
 def show_cross_rating_page():
