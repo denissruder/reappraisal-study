@@ -45,9 +45,8 @@ TEMP = 0.8 # Increased temperature for more diverse CoTs
 RATING_SCALE_MIN = 1
 RATING_SCALE_MAX = 9 
 MIN_NARRATIVE_LENGTH = 100
-N_COTS = 5 # *** NEW: Number of Chain-of-Thought runs for Self-Consistency ***
+N_COTS = 5 # *** Number of Chain-of-Thought runs for Self-Consistency ***
 
-# CORE DATA: Single source of truth for all motives and their goals
 # CORE DATA: Single source of truth for all motives and their goals
 MOTIVES_GOALS = [
     ("Hedonic", "To feel good", "Not to feel bad", "The need to experience pleasure and comfort, or to avoid pain and discomfort."),
@@ -130,6 +129,15 @@ PREVENTION_GOALS_RAG_STRING = "\n".join([
 # Indices (0-based) for grouping Regulatory Focus Items (9 Promotion, 9 Prevention)
 PROMOTION_ITEMS_0_BASED = [2, 4, 5, 7, 11, 13, 15, 16, 17]
 PREVENTION_ITEMS_0_BASED = [0, 1, 3, 6, 8, 9, 10, 12, 14]
+
+# --- FOR STREAMLIT PAGE LOGIC ---
+MOTIVES_FULL = []
+for motive, promotion_goal, prevention_goal, _ in MOTIVES_GOALS:
+    MOTIVES_FULL.append({
+        "motive": motive,
+        "Promotion": promotion_goal,
+        "Prevention": prevention_goal
+    })
 
 # --- RAG Context and Few-Shot Examples ---
 
