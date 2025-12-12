@@ -14,18 +14,21 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
+# Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
 <style>
 /* 1. Global Container/Form Spacing Reduction */
 .stForm {
     max-width: 900px;
     margin: 0 auto;
-    padding: 5px; /* Aggressively reduced form padding */
+    padding: 5px; 
 }
-/* Aggressively zero out vertical space for all internal blocks */
+/* *** FIX FOR OVERLAP *** Set a minimal, non-zero gap for all internal blocks. 
+   We keep margin/padding at 0 to control spacing via specific elements. 
+*/
 div[data-testid="stVerticalBlock"],
 div[data-testid="stHorizontalBlock"] {
-    gap: 0 !important; 
+    gap: 0.25rem !important; /* Minimal vertical space (4px) */
     margin: 0 !important;
     padding: 0 !important;
 }
@@ -33,7 +36,7 @@ div[data-testid="stHorizontalBlock"] {
 /* 2. Header Spacing Reduction */
 h1, h2, h3, h4 {
     margin-top: 0.5rem !important;
-    margin-bottom: 0.2rem !important; /* Minimal margin below headers */
+    margin-bottom: 0.2rem !important; 
     padding-top: 0.25rem !important;
     padding-bottom: 0.25rem !important;
 }
@@ -41,14 +44,15 @@ h1, h2, h3, h4 {
 /* 3. Style for motive headers (H4) inside the form */
 .stForm h4 {
     margin-top: 10px !important; 
-    margin-bottom: 5px !important; /* Minimal margin below motive title */
+    margin-bottom: 5px !important; 
     padding-bottom: 3px !important;
     border-bottom: 1px solid #ddd;
 }
 
 /* 4. Radio Button Spacing Fixes */
+/* CRITICAL FIX: Add a bottom margin to the radio block to separate it from the next motive group */
 div[data-testid^="stRadio"] {
-    margin-bottom: 5px !important; /* Minimal margin below radio group */
+    margin-bottom: 10px !important; 
 }
 
 /* Horizontal Radio Button Gap Reduction */
