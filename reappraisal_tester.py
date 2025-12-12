@@ -669,7 +669,7 @@ def show_motives_only_page():
 
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
             st.markdown(f"**{m['motive']}** - {m['Definition']}")
             
             # Create two equally sized columns inside the form
