@@ -14,76 +14,76 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
-# Inject minimal CSS for a cleaner, tighter look
-st.markdown("""
-<style>
-/* 1. Global Container/Form Spacing Reduction */
-.stForm {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 5px; 
-}
-/* Aggressively zero out vertical space for all internal blocks */
-div[data-testid="stVerticalBlock"],
-div[data-testid="stHorizontalBlock"] {
-    gap: 0.25rem !important; /* Minimal vertical space (4px) */
-    margin: 0 !important;
-    padding: 0 !important;
-}
+# # Inject minimal CSS for a cleaner, tighter look
+# st.markdown("""
+# <style>
+# /* 1. Global Container/Form Spacing Reduction */
+# .stForm {
+#     max-width: 900px;
+#     margin: 0 auto;
+#     padding: 5px; 
+# }
+# /* Aggressively zero out vertical space for all internal blocks */
+# div[data-testid="stVerticalBlock"],
+# div[data-testid="stHorizontalBlock"] {
+#     gap: 0.25rem !important; /* Minimal vertical space (4px) */
+#     margin: 0 !important;
+#     padding: 0 !important;
+# }
 
-/* 2. Header Spacing Reduction */
-h1, h2, h3, h4 {
-    margin-top: 0.5rem !important;
-    margin-bottom: 0.2rem !important; 
-    padding-top: 0.25rem !important;
-    padding-bottom: 0.25rem !important;
-}
+# /* 2. Header Spacing Reduction */
+# h1, h2, h3, h4 {
+#     margin-top: 0.5rem !important;
+#     margin-bottom: 0.2rem !important; 
+#     padding-top: 0.25rem !important;
+#     padding-bottom: 0.25rem !important;
+# }
 
-/* 3. Style for motive headers (H4) inside the form */
-.stForm h4 {
-    margin-top: 10px !important; 
-    margin-bottom: 5px !important; 
-    padding-bottom: 3px !important;
-    border-bottom: 1px solid #ddd;
-}
+# /* 3. Style for motive headers (H4) inside the form */
+# .stForm h4 {
+#     margin-top: 10px !important; 
+#     margin-bottom: 5px !important; 
+#     padding-bottom: 3px !important;
+#     border-bottom: 1px solid #ddd;
+# }
 
-/* 4. Column Border Fix */
-/* CRITICAL: Target the second column in the row to apply a left border. 
-   Streamlit columns are internally represented as horizontal blocks.
-   We select the second horizontal block (column) of the current row.
-*/
-div[data-testid="stHorizontalBlock"]:nth-child(2) {
-    border-left: 1px solid #ccc; /* Light grey vertical border */
-    padding-left: 10px; /* Add padding to push content away from the border */
-}
-/* Ensure the first column also has padding for balance */
-div[data-testid="stHorizontalBlock"]:nth-child(1) {
-    padding-right: 10px; 
-}
+# /* 4. Column Border Fix */
+# /* CRITICAL: Target the second column in the row to apply a left border. 
+#    Streamlit columns are internally represented as horizontal blocks.
+#    We select the second horizontal block (column) of the current row.
+# */
+# div[data-testid="stHorizontalBlock"]:nth-child(2) {
+#     border-left: 1px solid #ccc; /* Light grey vertical border */
+#     padding-left: 10px; /* Add padding to push content away from the border */
+# }
+# /* Ensure the first column also has padding for balance */
+# div[data-testid="stHorizontalBlock"]:nth-child(1) {
+#     padding-right: 10px; 
+# }
 
-/* 5. Radio Button Spacing Fixes */
-div[data-testid^="stRadio"] {
-    margin-bottom: 10px !important; 
-}
-div[role="radiogroup"] {
-    gap: 0px !important; 
-}
-div[role="radiogroup"] label {
-    margin-right: 5px !important; 
-    padding: 0px !important;
-}
+# /* 5. Radio Button Spacing Fixes */
+# div[data-testid^="stRadio"] {
+#     margin-bottom: 10px !important; 
+# }
+# div[role="radiogroup"] {
+#     gap: 0px !important; 
+# }
+# div[role="radiogroup"] label {
+#     margin-right: 5px !important; 
+#     padding: 0px !important;
+# }
 
-/* 6. Submit Button Spacing */
-div[data-testid="stFormSubmitButton"] {
-    padding-top: 5px; 
-    padding-bottom: 5px;
-}
-div[role="radiogroup"] label {
-    /* ... existing styles ... */
-    font-size: 0.9rem !important; /* NEW: Makes the radio button labels slightly smaller */
-}
-</style>
-""", unsafe_allow_html=True)
+# /* 6. Submit Button Spacing */
+# div[data-testid="stFormSubmitButton"] {
+#     padding-top: 5px; 
+#     padding-bottom: 5px;
+# }
+# div[role="radiogroup"] label {
+#     /* ... existing styles ... */
+#     font-size: 0.9rem !important; /* NEW: Makes the radio button labels slightly smaller */
+# }
+# </style>
+# """, unsafe_allow_html=True)
 
 # --- 1. CONFIGURATION & SETUP ---
 
