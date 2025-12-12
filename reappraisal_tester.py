@@ -619,6 +619,7 @@ def show_regulatory_only_page():
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
             st.session_state.page = 'motives' # Route to motives next
+            scroll_to_top_forced()
             st.rerun()
 
 def show_motives_only_page():
@@ -919,7 +920,9 @@ def show_thank_you_page():
 
 
 # --- 5. MAIN APP EXECUTION ---
-
+if 'scroll_counter' not in st.session_state:
+    st.session_state.scroll_counter = 0
+    
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
 
@@ -927,9 +930,9 @@ if 'page' not in st.session_state:
 if st.session_state.page == 'consent':
     show_consent_page()
 elif st.session_state.page == 'regulatory':
-    show_regulatory_only_page() # New first assessment page
+    show_regulatory_only_page() 
 elif st.session_state.page == 'motives':
-    show_motives_only_page() # New second assessment page
+    show_motives_only_page() 
 elif st.session_state.page == 'chat': 
     show_chat_page()
 elif st.session_state.page == 'review_narrative':
@@ -940,3 +943,37 @@ elif st.session_state.page == 'cross_rating':
     show_cross_rating_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
+
+def scroll_to_top_forced():
+    """Increments a counter and injects JavaScript to force a scroll to the top."""
+    
+    # 1. Increment the counter to force re-render
+    st.session_state.scroll_counter += 1
+    
+    # 2. Inject the most robust script with the counter embedded
+    scroll_script = f"""
+    <script>
+        // Use a small delay to ensure the content is ready.
+        setTimeout(function() {{
+            // Target the main scrollable container from the parent window's context
+            const scrollableElement = window.parent.document.querySelector('.main');
+            
+            if (scrollableElement) {{
+                scrollableElement.scrollTop = 0;
+                console.log('Scrolled using main selector. Counter: {st.session_state.scroll_counter}');
+            }} else {{
+                // Fallback: Target the stAppViewBlock (Streamlit's main content element)
+                const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
+                if (appViewContainer) {{
+                    appViewContainer.scrollTop = 0;
+                    console.log('Scrolled using stAppViewBlock selector. Counter: {st.session_state.scroll_counter}');
+                }} else {{
+                    window.scrollTo(0, 0);
+                    console.log('Scrolled using window fallback. Counter: {st.session_state.scroll_counter}');
+                }}
+            }}
+        }}, 10);
+    </script>
+    """
+    # Force execution by setting the HTML content (the counter ensures the code string changes)
+    components.html(scroll_script, height=0)
