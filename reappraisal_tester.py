@@ -38,6 +38,40 @@ div[data-testid="stForm"] label {
 </style>
 """, unsafe_allow_html=True)
 
+def scroll_to_top_forced():
+    """Increments a counter and injects JavaScript to force a scroll to the top."""
+    
+    # 1. Increment the counter to force re-render
+    st.session_state.scroll_counter += 1
+    
+    # 2. Inject the most robust script with the counter embedded
+    scroll_script = f"""
+    <script>
+        // Use a small delay to ensure the content is ready.
+        setTimeout(function() {{
+            // Target the main scrollable container from the parent window's context
+            const scrollableElement = window.parent.document.querySelector('.main');
+            
+            if (scrollableElement) {{
+                scrollableElement.scrollTop = 0;
+                console.log('Scrolled using main selector. Counter: {st.session_state.scroll_counter}');
+            }} else {{
+                // Fallback: Target the stAppViewBlock (Streamlit's main content element)
+                const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
+                if (appViewContainer) {{
+                    appViewContainer.scrollTop = 0;
+                    console.log('Scrolled using stAppViewBlock selector. Counter: {st.session_state.scroll_counter}');
+                }} else {{
+                    window.scrollTo(0, 0);
+                    console.log('Scrolled using window fallback. Counter: {st.session_state.scroll_counter}');
+                }}
+            }}
+        }}, 10);
+    </script>
+    """
+    # Force execution by setting the HTML content (the counter ensures the code string changes)
+    components.html(scroll_script, height=0)
+
 # --- 1. CONFIGURATION & SETUP ---
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -943,37 +977,3 @@ elif st.session_state.page == 'cross_rating':
     show_cross_rating_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
-
-def scroll_to_top_forced():
-    """Increments a counter and injects JavaScript to force a scroll to the top."""
-    
-    # 1. Increment the counter to force re-render
-    st.session_state.scroll_counter += 1
-    
-    # 2. Inject the most robust script with the counter embedded
-    scroll_script = f"""
-    <script>
-        // Use a small delay to ensure the content is ready.
-        setTimeout(function() {{
-            // Target the main scrollable container from the parent window's context
-            const scrollableElement = window.parent.document.querySelector('.main');
-            
-            if (scrollableElement) {{
-                scrollableElement.scrollTop = 0;
-                console.log('Scrolled using main selector. Counter: {st.session_state.scroll_counter}');
-            }} else {{
-                // Fallback: Target the stAppViewBlock (Streamlit's main content element)
-                const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
-                if (appViewContainer) {{
-                    appViewContainer.scrollTop = 0;
-                    console.log('Scrolled using stAppViewBlock selector. Counter: {st.session_state.scroll_counter}');
-                }} else {{
-                    window.scrollTo(0, 0);
-                    console.log('Scrolled using window fallback. Counter: {st.session_state.scroll_counter}');
-                }}
-            }}
-        }}, 10);
-    </script>
-    """
-    # Force execution by setting the HTML content (the counter ensures the code string changes)
-    components.html(scroll_script, height=0)
