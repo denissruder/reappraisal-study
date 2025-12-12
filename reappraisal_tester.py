@@ -688,7 +688,7 @@ def show_motives_only_page():
             # --- END: New Side-by-Side Placement ---
             
             # Add a small visual divider to separate motive groups (optional, but helpful)
-            st.markdown("---") 
+            # st.markdown("---") 
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' # Route to chat next
