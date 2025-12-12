@@ -258,7 +258,6 @@ def get_random_story_from_db():
 
 # --- LLM APPRAISAL PREDICTION TEMPLATE ---
 
-# FIX: Consolidated into one f-string and properly double-escaped all literal braces in the final JSON template to prevent LangChain from reading them as variables.
 APPRAISAL_PREDICTION_TEMPLATE = f"""
 # PERSONA: APPRAISAL ANALYST (Expert Psychological Assessor)
 You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This task adheres to **ConVe principles** (Consistency and Verifiability).
@@ -647,7 +646,7 @@ def show_motives_only_page():
             
             # Promotion Focus (NOW RADIO BUTTONS)
             motive_scores[m['motive']]['Promotion'] = st.radio(
-                f"Promotion Focus: *{m['promotion']}*",
+                f"Promotion Focus: *{m['Promotion']}*",
                 options=RADIO_OPTIONS, 
                 index=motive_scores[m['motive']]['Promotion'] - 1, 
                 horizontal=True, 
@@ -655,7 +654,7 @@ def show_motives_only_page():
             )
             # Prevention Focus (NOW RADIO BUTTONS)
             motive_scores[m['motive']]['Prevention'] = st.radio(
-                f"Prevention Focus: *{m['prevention']}*",
+                f"Prevention Focus: *{m['Prevention']}*",
                 options=RADIO_OPTIONS, 
                 index=motive_scores[m['motive']]['Prevention'] - 1, 
                 horizontal=True, 
