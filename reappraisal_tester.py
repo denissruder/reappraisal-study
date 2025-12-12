@@ -660,6 +660,7 @@ def show_motives_only_page():
 
     with st.form("initial_assessment_form"):
         st.markdown("### General Motive Importance & Focuses")
+        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
         st.markdown(f"""
         Please rate the importance of the following **{len(MOTIVES_FULL)} motives** to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
         You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
