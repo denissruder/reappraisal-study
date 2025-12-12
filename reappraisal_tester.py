@@ -13,6 +13,64 @@ from langchain_core.messages import HumanMessage, AIMessage
 # --- 0. Streamlit UI Setup ---
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
+This is a great task for custom CSS. To make everything smaller and reduce the vertical gaps, we need to aggressively target the margins and padding of the Streamlit elements, especially the headers and the blocks that hold your radio buttons.
+
+Here is a two-part fix:
+1. Update the Global CSS (Crucial for Spacing)
+
+You need to update the st.markdown block that injects the CSS at the very start of your reappraisal_tester.py file.
+
+Replace your entire initial CSS injection block with this one:
+Python
+
+# Inject minimal CSS for a cleaner, tighter look
+st.markdown("""
+<style>
+/* 1. Global Container/Form Spacing Reduction */
+.stForm {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 10px; /* Reduced form padding */
+}
+/* Aggressively reduces vertical space for all Streamlit components */
+div[data-testid="stVerticalBlock"],
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.5rem; /* Reduce default gap */
+}
+
+/* 2. Header Spacing Reduction */
+h1, h2, h3, h4 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+}
+
+/* 3. Style for motive headers (H4) specifically inside the form */
+.stForm h4 {
+    margin-top: 10px !important; /* Reduced margin */
+    margin-bottom: 5px !important;
+    padding-bottom: 3px !important;
+    border-bottom: 1px solid #ddd;
+}
+
+/* 4. Radio Button Vertical Gap Reduction */
+div[data-testid^="stRadio"] {
+    margin-bottom: 0.25rem; /* Tighten up vertical spacing between motive groups */
+}
+
+/* Reduce space between radio options for horizontal layout (existing rule, slightly reduced) */
+div[data-testid="stForm"] label {
+    margin-right: 10px; 
+}
+
+/* 5. Reduce spacing around the submit button */
+div[data-testid="stFormSubmitButton"] {
+    padding-top: 10px; /* Reduced padding above button */
+    padding-bottom: 5px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # --- 1. CONFIGURATION & SETUP ---
 
