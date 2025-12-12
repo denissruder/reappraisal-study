@@ -14,7 +14,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
-.markdown("""
+st.markdown("""
 <style>
 /* 1. Global Container/Form Spacing Reduction */
 .stForm {
