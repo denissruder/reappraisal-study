@@ -47,67 +47,23 @@ RATING_SCALE_MAX = 9
 MIN_NARRATIVE_LENGTH = 100
 N_COTS = 5 # *** NEW: Number of Chain-of-Thought runs for Self-Consistency ***
 
-# Comprehensive list of Motives and their Promotion/Prevention framings
-MOTIVES_FULL = [
-    {"motive": "Hedonic", "Promotion": "To feel good", "Prevention": "Not to feel bad"},
-    {"motive": "Physical", "Promotion": "To be in good health", "Prevention": "To stay safe"},
-    {"motive": "Wealth", "Promotion": "To have money", "Prevention": "To avoid poverty"},
-    {"motive": "Predictability", "Promotion": "To understand", "Prevention": "To avoid confusion"},
-    {"motive": "Competence", "Promotion": "To succeed", "Prevention": "To avoid failure"},
-    {"motive": "Growth", "Promotion": "To learn and grow", "Prevention": "To avoid monotony or decline"},
-    {"motive": "Autonomy", "Promotion": "To be free to decide", "Prevention": "Not to be told what to do"},
-    {"motive": "Relatedness", "Promotion": "To feel connected", "Prevention": "To avoid loneliness"},
-    {"motive": "Acceptance", "Promotion": "To be liked", "Prevention": "To avoid disapproval"},
-    {"motive": "Status", "Promotion": "To stand out", "Prevention": "To avoid being ignored"},
-    {"motive": "Responsibility", "Promotion": "To live up to expectations", "Prevention": "Not to let others down"},
-    {"motive": "Meaning", "Promotion": "To make a difference", "Prevention": "Not to waste my life"},
-    {"motive": "Instrumental", "Promotion": "To gain something", "Prevention": "To avoid something"},
+# CORE DATA: Single source of truth for all motives and their goals
+# CORE DATA: Single source of truth for all motives and their goals
+MOTIVES_GOALS = [
+    ("Hedonic", "To feel good", "Not to feel bad", "The need to experience pleasure and comfort, or to avoid pain and discomfort."),
+    ("Physical", "To be in good health", "To stay safe", "The need to maintain one's body (health, fitness) and ensure its continued well-being."),
+    ("Wealth", "To have money", "To avoid poverty", "The need for financial resources and economic security."),
+    ("Predictability", "To understand", "To avoid confusion", "The need to understand the environment, have order, and avoid uncertainty or confusion."),
+    ("Competence", "To succeed", "To avoid failure", "The need to feel capable, effective, and successful at tasks and challenges."),
+    ("Growth", "To learn and grow", "To avoid monotony or decline", "The need for continuous learning, development, and personal expansion."),
+    ("Autonomy", "To be free to decide", "Not to be told what to do", "The need for self-determination, control over one's life, and the ability to make independent choices."),
+    ("Relatedness", "To feel connected", "To avoid loneliness", "The need to form and maintain close, positive, and meaningful bonds with others."),
+    ("Acceptance", "To be liked", "To avoid disapproval", "The need to be approved of, respected, and feel included by social groups."),
+    ("Status", "To stand out", "To avoid being ignored", "The need for recognition, social rank, influence, or prominence within a group."),
+    ("Responsibility", "To live up to expectations", "Not to let others down", "The need to fulfill one's duties, meet obligations, and act reliably towards others."),
+    ("Meaning", "To make a difference", "Not to waste my life", "The need to feel that one's life is significant, purposeful, and contributes to something larger."),
+    ("Instrumental", "To gain something", "To avoid something", "The need to view actions and resources as means to an end, focused on practical outcomes."),
 ]
-
-# 1. Core Motive Descriptions List (Used for the first RAG list)
-CORE_MOTIVE_DESCRIPTIONS = [
-    ("Hedonic", "The need to experience pleasure and comfort, or to avoid pain and discomfort."),
-    ("Physical", "The need to maintain one's body (health, fitness) and ensure its continued well-being."),
-    ("Wealth", "The need for financial resources and economic security."),
-    ("Predictability", "The need to understand the environment, have order, and avoid uncertainty or confusion."),
-    ("Competence", "The need to feel capable, effective, and successful at tasks and challenges."),
-    ("Growth", "The need for continuous learning, development, and personal expansion."),
-    ("Autonomy", "The need for self-determination, control over one's life, and the ability to make independent choices."),
-    ("Relatedness", "The need to form and maintain close, positive, and meaningful bonds with others."),
-    ("Acceptance", "The need to be approved of, respected, and feel included by social groups."),
-    ("Status", "The need for recognition, social rank, influence, or prominence within a group."),
-    ("Responsibility", "The need to fulfill one's duties, meet obligations, and act reliably towards others."),
-    ("Meaning", "The need to feel that one's life is significant, purposeful, and contributes to something larger."),
-    ("Instrumental", "The need to view actions and resources as means to an end, focused on practical outcomes."),
-]
-
-# 2. Promotion Goals List (Used for the second RAG list)
-PROMOTION_GOALS_LIST = [
-    (motive['motive'], motive['Promotion'])
-    for motive in MOTIVES_FULL
-]
-
-# 3. Prevention Goals List (Used for the third RAG list)
-PREVENTION_GOALS_LIST = [
-    (motive['motive'], motive['Prevention'])
-    for motive in MOTIVES_FULL
-]
-
-# Create string representations of the lists for the RAG prompt f-string
-CORE_MOTIVES_RAG_STRING = "\n".join([
-    f"- {motive[0]}: {motive[1]}"
-    for motive in CORE_MOTIVE_DESCRIPTIONS
-])
-
-PROMOTION_GOALS_RAG_STRING = "\n".join([
-    f"- {motive[0]}: '{motive[1]}'"
-    for motive in PROMOTION_GOALS_LIST
-])
-
-PREVENTION_GOALS_RAG_STRING = "\n".join([
-    f"- {motive[0]}: '{motive[1]}'"
-    for motive in PREVENTION_GOALS_LIST
-])
 
 # Regulatory Focus Questionnaire items (18 items)
 REG_FOCUS_ITEMS = [
@@ -131,10 +87,6 @@ REG_FOCUS_ITEMS = [
     "Overall, I am more oriented toward achieving success than preventing failure"
 ]
 
-# Indices (0-based) for grouping Regulatory Focus Items (9 Promotion, 9 Prevention)
-PROMOTION_ITEMS_0_BASED = [2, 4, 5, 7, 11, 13, 15, 16, 17]
-PREVENTION_ITEMS_0_BASED = [0, 1, 3, 6, 8, 9, 10, 12, 14]
-
 # Guided Interview Questions (8 items)
 INTERVIEW_QUESTIONS = [
     "What happened? Describe a recent emotionally unpleasant event.",
@@ -147,14 +99,46 @@ INTERVIEW_QUESTIONS = [
     "Did things go as you expected? If not, what was unexpected?"
 ]
 
+# Create the master list of 26 required JSON keys
+MOTIVE_SCORE_KEYS = []
+for motive_name, _, _, _ in MOTIVES_GOALS:
+    MOTIVE_SCORE_KEYS.append(f"{motive_name}_Promotion")
+    MOTIVE_SCORE_KEYS.append(f"{motive_name}_Prevention")
+
+JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
+
+# --- RAG DATA STRUCTURES ---
+
+# 1. Core Motive Descriptions (Motive : Description)
+CORE_MOTIVES_RAG_STRING = "\n".join([
+    f"\"{motive[0]}\" : \"{motive[3]}\""
+    for motive in MOTIVES_GOALS
+])
+
+# 2. Promotion Goals (Motive : Goal)
+PROMOTION_GOALS_RAG_STRING = "\n".join([
+    f"\"{motive[0]}\" : \"{motive[1]}\""
+    for motive in MOTIVES_GOALS
+])
+
+# 3. Prevention Goals (Motive : Goal)
+PREVENTION_GOALS_RAG_STRING = "\n".join([
+    f"\"{motive[0]}\" : \"{motive[2]}\""
+    for motive in MOTIVES_GOALS
+])
+
+# Indices (0-based) for grouping Regulatory Focus Items (9 Promotion, 9 Prevention)
+PROMOTION_ITEMS_0_BASED = [2, 4, 5, 7, 11, 13, 15, 16, 17]
+PREVENTION_ITEMS_0_BASED = [0, 1, 3, 6, 8, 9, 10, 12, 14]
+
 # --- RAG Context and Few-Shot Examples ---
 
-MOTIVE_RELEVANCE_RAG = f"""
+RFT_THEORY_RAG = f"""
 # RAG CONTEXT: Regulatory Focus Theory (RFT) Explanation:
 
 Regulatory Focus Theory (RFT), developed by E. Tory Higgins, is a psychological framework that explains two distinct ways individuals pursue goals and regulate behavior. 
 
-**There are 13 core motives (Underlying Needs):**
+**There are 13 core motives (Underlying Needs) and their basic descriptions:**
 {CORE_MOTIVES_RAG_STRING}
 
 Regulatory Focus Theory (RFT) mandates that all motives are assessed along two independent motivational orientations: Promotion (Gains/Ideals) and Prevention (Non-Losses/Oughts).
