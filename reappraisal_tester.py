@@ -12,30 +12,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 # --- 0. Streamlit UI Setup ---
 
-# Set wide layout and title for better form visibility
 st.set_page_config(page_title="Version A: RFT Prediction Study")
-
-# Inject minimal CSS and the highly robust Scroll Script in a single block
-st.markdown("""
-<style>
-/* Adjust container width for forms */
-.stForm {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-}
-/* Style for motive headers in forms */
-.stForm h4 {
-    margin-top: 20px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #ddd;
-}
-/* Reduce space between radio options for horizontal layout */
-div[data-testid="stForm"] label {
-    margin-right: 15px;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # --- 1. CONFIGURATION & SETUP ---
 
