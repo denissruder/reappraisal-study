@@ -15,13 +15,13 @@ from langchain_core.messages import HumanMessage, AIMessage
 # Set wide layout and title for better form visibility
 st.set_page_config(page_title="Version A: RFT Prediction Study")
 
-# Inject minimal CSS for a cleaner look
+# Inject minimal CSS and the Scroll Script in a single block for execution consistency
 st.markdown("""
 <style>
 /* Adjust container width for forms */
 .stForm {
-    max-width: 900px; 
-    margin: 0 auto;
+    max-width: 900px; /* Keep this to limit form width */
+    margin: 0 auto;  /* This centers the form element */
     padding: 20px;
 }
 /* Style for motive headers in forms */
@@ -35,29 +35,22 @@ div[data-testid="stForm"] label {
     margin-right: 15px;
 }
 </style>
+<script>
+    // CRITICAL FIX: Use a small delay (10ms) to ensure the script executes 
+    // after the content has been re-rendered and the container is ready.
+    setTimeout(function() {
+        // Target the primary Streamlit view container (most reliable selector)
+        const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
+        
+        if (appViewContainer) {
+            appViewContainer.scrollTop = 0;
+        } else {
+            // Fallback to scrolling the entire window if the container is not found
+            window.scrollTo(0, 0); 
+        }
+    }, 10); 
+</script>
 """, unsafe_allow_html=True)
-
-# This ensures the user is always at the top of the new page, which is helpful
-# when navigating from a long page (like a rating form) to a new one.
-st.markdown(
-    """
-    <script>
-        // Use a small delay (10ms) to ensure the script executes after the content has been re-rendered.
-        setTimeout(function() {
-            // FIX: Target the primary Streamlit view container (most reliable selector)
-            const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
-            
-            if (appViewContainer) {
-                appViewContainer.scrollTop = 0;
-            } else {
-                // Fallback to scrolling the entire window if the container is not found
-                window.scrollTo(0, 0); 
-            }
-        }, 10); 
-    </script>
-    """,
-    unsafe_allow_html=True
-)
 
 # --- 1. CONFIGURATION & SETUP ---
 
