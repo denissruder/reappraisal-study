@@ -803,14 +803,7 @@ def show_narrative_review_page():
         st.session_state.page = 'situation_rating'
         st.rerun()
 
-def show_situation_rating_page():
-    st.title("📊 Situation Appraisal: Your Perspective (26 Scores)")
-    st.markdown(f"""
-    Please rate how **relevent** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX}.
-    
-    **1 = Not Relevant At All** | **{RATING_SCALE_MAX} = Extremely Relevant** (The situation strongly helped OR hindered this motive/focus.)
-    """)
-    
+def show_situation_rating_page():    
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
@@ -819,31 +812,47 @@ def show_situation_rating_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
-    with st.form("situation_rating_form"):
-        situation_scores = st.session_state.situation_motive_scores
-        
-        for m in MOTIVES_FULL:
-            st.markdown(f"#### Motive: {m['motive']}")
-            
-            # Promotion Focus Relevance (NOW RADIO BUTTONS)
-            situation_scores[m['motive']]['Promotion'] = st.radio(
-                f"Relevance to Promotion Focus: *{m['Promotion']}*",
-                options=RADIO_OPTIONS, 
-                index=situation_scores[m['motive']]['Promotion'] - 1, 
-                horizontal=True, 
-                key=f"sit_{m['motive']}_Promotion"
-            )
-            # Prevention Focus Relevance (NOW RADIO BUTTONS)
-            situation_scores[m['motive']]['Prevention'] = st.radio(
-                f"Relevance to Prevention Focus: *{m['Prevention']}*",
-                options=RADIO_OPTIONS, 
-                index=situation_scores[m['motive']]['Prevention'] - 1, 
-                horizontal=True, 
-                key=f"sit_{m['motive']}_Prevention"
-            )
+    with st.form("initial_assessment_form"):
+        st.markdown("### Situation Appraisal: Your Perspectives")
+        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
+        st.markdown(f"""
+        Please rate how **relevent** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX} 
+        You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
+        """)
+        st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
-        if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
-            st.session_state.page = 'cross_rating'
+        motive_scores = st.session_state.general_motive_scores
+        for m in MOTIVES_FULL:
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
+            
+            # Create two equally sized columns inside the form
+            col1, col2 = st.columns(2) 
+            
+            with col1:
+                # Promotion Focus
+                motive_scores[m['motive']]['Promotion'] = st.radio(
+                    # Making the label text bolder
+                    f"{m['Promotion']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Promotion'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Promotion"
+                )
+            
+            with col2:
+                # Prevention Focus
+                motive_scores[m['motive']]['Prevention'] = st.radio(
+                    # Making the label text bolder
+                    f"{m['Prevention']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Prevention'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Prevention"
+                )
+
+        if st.form_submit_button("Next: Start Interview", type="primary"):
+            st.session_state.page = 'chat' # Route to chat next
             st.rerun()
 
 def show_cross_rating_page():
