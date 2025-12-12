@@ -170,13 +170,10 @@ PREVENTION_GOALS_RAG_STRING = "\n".join([
 ])
 
 # --- FOR STREAMLIT PAGE LOGIC ---
-MOTIVES_FULL = []
-for motive, promotion_goal, prevention_goal, _ in MOTIVES_GOALS:
-    MOTIVES_FULL.append({
-        "motive": motive,
-        "Promotion": promotion_goal,
-        "Prevention": prevention_goal
-    })
+MOTIVES_FULL = [
+    {'motive': m[0], 'Promotion': m[1], 'Prevention': m[2], 'Definition': m[3]}
+    for m in MOTIVES_GOALS
+]
 
 # --- RAG Context and Few-Shot Examples ---
 
@@ -667,7 +664,7 @@ def show_motives_only_page():
 
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            st.markdown(f"**{m['motive']}** - {m['definition']}")
+            st.markdown(f"**{m['motive']}** - {m['Definition']}")
             
             # Create two equally sized columns inside the form
             col1, col2 = st.columns(2) 
