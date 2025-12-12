@@ -13,14 +13,14 @@ from langchain_core.messages import HumanMessage, AIMessage
 # --- 0. Streamlit UI Setup ---
 
 # Set wide layout and title for better form visibility
-st.set_page_config(layout="wide", page_title="Version A: Appraisal Prediction Study (V4 - Self-Consistency)")
+st.set_page_config(page_title="Version A: RFT Prediction Study")
 
 # Inject minimal CSS for a cleaner look
 st.markdown("""
 <style>
 /* Adjust container width for forms */
 .stForm {
-    max-width: 900px;
+    max-width: 900px; 
     margin: 0 auto;
     padding: 20px;
 }
