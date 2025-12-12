@@ -598,8 +598,6 @@ def show_consent_page():
         st.rerun()
 
 def show_regulatory_only_page():
-    st.title("🎯 Initial Assessment: Regulatory Focus")
-    
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
@@ -632,9 +630,7 @@ def show_regulatory_only_page():
             st.session_state.page = 'motives' # Route to motives next            
             st.rerun()
 
-def show_motives_only_page():
-    st.title("General Motive Profile")
-    
+def show_motives_only_page():  
     # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
