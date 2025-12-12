@@ -894,7 +894,7 @@ def show_cross_rating_page():
                     # Making the label text bolder
                     f"{m['Promotion']}", 
                     options=RADIO_OPTIONS, 
-                    index=motive_scores[m['motive']]['Promotion'] - 1, 
+                    index=cross_scores[m['motive']]['Promotion'] - 1,
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Promotion"
                 )
@@ -905,7 +905,7 @@ def show_cross_rating_page():
                     # Making the label text bolder
                     f"{m['Prevention']}", 
                     options=RADIO_OPTIONS, 
-                    index=motive_scores[m['motive']]['Prevention'] - 1, 
+                    index=cross_scores[m['motive']]['Promotion'] - 1,
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Prevention"
                 )
