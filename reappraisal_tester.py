@@ -41,8 +41,8 @@ div[data-testid="stForm"] label {
 def scroll_to_top_forced():
     """
     Increments a counter and injects JavaScript to force a scroll to the top.
-    Uses st.markdown with dynamically unique script content and a long delay (500ms)
-    to prevent Streamlit component caching and win the scroll race condition.
+    Uses an aggressive 750ms delay and the most direct window-level scroll command 
+    to win the race condition against Streamlit's internal rendering/scroll reset.
     """
     
     # 1. Increment the counter to force re-render (CRITICAL for st.markdown to work every time)
@@ -52,32 +52,28 @@ def scroll_to_top_forced():
     scroll_script = f"""
     <div style="height:0px;"></div>
     <script>
-        // CRITICAL: Increased delay (500ms) to ensure the DOM has finished rendering the new page content.
+        // CRITICAL: Increased delay to 750ms to ensure the new page is fully rendered 
+        // and Streamlit's internal scroll reset logic is complete.
         setTimeout(function() {{
             
-            // Attempt 1: Target the main scrollable container from the parent window's context
+            // Attempt 1: Most aggressive top-level scroll on the parent window (best chance of success)
+            // This bypasses Streamlit's internal containers and targets the main viewport.
+            window.parent.scrollTo({{ top: 0, behavior: 'instant' }});
+
+            // Fallback: If the above fails (e.g., in a strict iframe/component setup), try the .main selector
             const mainScrollContainer = window.parent.document.querySelector('.main');
             
             if (mainScrollContainer) {{
                 // Force the scroll position directly
                 mainScrollContainer.scrollTop = 0; 
-                
-                // Fallback: If direct scrollTop=0 fails, use scrollIntoView on the first visible element
-                if (mainScrollContainer.scrollTop !== 0 && mainScrollContainer.firstElementChild) {{
-                    mainScrollContainer.firstElementChild.scrollIntoView({{ behavior: 'instant', block: 'start' }});
-                }}
-                
-                console.log('Forced scroll via parent .main. Counter: {st.session_state.scroll_counter}');
-            }} else {{
-                // Fallback 2: Try the window object (usually fails in Streamlit, but safest option)
-                window.scrollTo(0, 0);
-                console.log('Forced scroll via window. Counter: {st.session_state.scroll_counter}');
+                console.log('Forced scroll via parent .main fallback. Counter: {st.session_state.scroll_counter}');
             }}
-        }}, 500); // Wait 500 milliseconds (0.5 second)
+            
+            console.log('Forced scroll via window.parent.scrollTo. Counter: {st.session_state.scroll_counter}');
+        }}, 750); // Wait 750 milliseconds
     </script>
     """
-    # 3. Use st.markdown. The unique f-string content (which includes the counter) 
-    # forces Streamlit to render the component every time.
+    # 3. Use st.markdown. The unique f-string content forces the component to render every time.
     st.markdown(scroll_script, unsafe_allow_html=True)
 
 # --- 1. CONFIGURATION & SETUP ---
