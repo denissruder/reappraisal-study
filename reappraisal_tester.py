@@ -42,11 +42,17 @@ div[data-testid="stForm"] label {
 st.markdown(
     """
     <script>
-        // Use a small delay (e.g., 10ms) to ensure the script executes 
-        // after Streamlit has finished rendering the new page content.
+        // Use a small delay to ensure the script executes after the content is rendered.
         setTimeout(function() {
-            window.scrollTo(0, 0);
-        }, 10); 
+            // CRITICAL FIX: Target the main scrollable Streamlit container element
+            const mainContainer = document.querySelector('.main');
+            if (mainContainer) {
+                mainContainer.scrollTop = 0;
+            } else {
+                // Fallback to window scroll if the container is not found (less reliable)
+                window.scrollTo(0, 0); 
+            }
+        }, 10); // 10ms delay is usually sufficient
     </script>
     """,
     unsafe_allow_html=True
