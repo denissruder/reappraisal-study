@@ -881,34 +881,34 @@ def show_cross_rating_page():
 
         cross_scores = st.session_state.cross_motive_scores
         
-    for m in MOTIVES_FULL:
-        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-        st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
-            
-        # Create two equally sized columns inside the form
-        col1, col2 = st.columns(2) 
-            
-        with col1:
-            # Promotion Focus
-            motive_scores[m['motive']]['Promotion'] = st.radio(
-                # Making the label text bolder
-                f"{m['Promotion']}", 
-                options=RADIO_OPTIONS, 
-                index=motive_scores[m['motive']]['Promotion'] - 1, 
-                horizontal=True, 
-                key=f"gen_{m['motive']}_Promotion"
-            )
-            
-        with col2:
-            # Prevention Focus
-            motive_scores[m['motive']]['Prevention'] = st.radio(
-                # Making the label text bolder
-                f"{m['Prevention']}", 
-                options=RADIO_OPTIONS, 
-                index=motive_scores[m['motive']]['Prevention'] - 1, 
-                horizontal=True, 
-                key=f"gen_{m['motive']}_Prevention"
-            )
+        for m in MOTIVES_FULL:
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
+                
+            # Create two equally sized columns inside the form
+            col1, col2 = st.columns(2) 
+                
+            with col1:
+                # Promotion Focus
+                motive_scores[m['motive']]['Promotion'] = st.radio(
+                    # Making the label text bolder
+                    f"{m['Promotion']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Promotion'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Promotion"
+                )
+                
+            with col2:
+                # Prevention Focus
+                motive_scores[m['motive']]['Prevention'] = st.radio(
+                    # Making the label text bolder
+                    f"{m['Prevention']}", 
+                    options=RADIO_OPTIONS, 
+                    index=motive_scores[m['motive']]['Prevention'] - 1, 
+                    horizontal=True, 
+                    key=f"gen_{m['motive']}_Prevention"
+                )
 
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
             st.session_state.cross_participant_situation = random_situation
