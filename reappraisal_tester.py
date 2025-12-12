@@ -42,17 +42,18 @@ div[data-testid="stForm"] label {
 st.markdown(
     """
     <script>
-        // Use a small delay to ensure the script executes after the content is rendered.
+        // Use a small delay (10ms) to ensure the script executes after the content has been re-rendered.
         setTimeout(function() {
-            // CRITICAL FIX: Target the main scrollable Streamlit container element
-            const mainContainer = document.querySelector('.main');
-            if (mainContainer) {
-                mainContainer.scrollTop = 0;
+            // FIX: Target the primary Streamlit view container (most reliable selector)
+            const appViewContainer = document.querySelector('[data-testid="stAppViewBlock"]');
+            
+            if (appViewContainer) {
+                appViewContainer.scrollTop = 0;
             } else {
-                // Fallback to window scroll if the container is not found (less reliable)
+                // Fallback to scrolling the entire window if the container is not found
                 window.scrollTo(0, 0); 
             }
-        }, 10); // 10ms delay is usually sufficient
+        }, 10); 
     </script>
     """,
     unsafe_allow_html=True
