@@ -581,7 +581,6 @@ def show_regulatory_only_page():
 
         if st.form_submit_button("Next: General Motive Profile", type="primary"):
             st.session_state.page = 'motives' # Route to motives next
-            scroll_to_top_forced()
             st.rerun()
 
 def show_motives_only_page():
