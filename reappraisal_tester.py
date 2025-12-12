@@ -866,6 +866,8 @@ def show_cross_rating_page():
         random_situation = st.session_state.cross_participant_situation
         
     st.subheader("Event from Another Participant:")
+    st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
+    
     with st.container(border=True):
         st.info(random_situation)
 
@@ -888,13 +890,8 @@ def show_cross_rating_page():
         cross_scores = st.session_state.cross_motive_scores
         
         for m in MOTIVES_FULL:
-            # Set the HR to invisible for consistent spacing (as requested by user previously)
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
-            # Motive Definition (using 0.9rem font as previously agreed)
-            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 0px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True) 
-            
-            # Small vertical spacing
-            st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
             
             # Create two equally sized columns inside the form
             col1, col2 = st.columns(2) 
