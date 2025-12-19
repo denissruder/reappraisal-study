@@ -164,7 +164,7 @@ MOTIVES_FULL = [
 
 # --- Few-Shot Examples ---
 
-# FEW-SHOT EXAMPLE for Motive Prediction (Raw string, remains the format reference)
+# FEW-SHOT EXAMPLE for Motive Prediction
 example1 = """
 Event: I am falsely accused of a serious, high-profile intellectual property theft by a former business partner. The initial police report and subsequent media coverage have already ruined my professional reputation, causing clients to drop me instantly and my business to implode overnight. I’ve had to mortgage my home to cover the massive legal defense costs, retaining a top-tier lawyer just to have a chance against the well-funded opponent. The case is moving slowly, and the discovery phase requires me to spend countless hours reviewing old documents and communications, reliving the breakdown of the partnership. I know I am innocent, but the burden of proof, the aggressive legal tactics of the other side, and the sheer length of the process are mentally debilitating. I receive constant, hostile messages online from strangers who have read the biased media reports. My savings are gone, my career is a wreck, and the stress has led to profound marital strain. The anticipation of the trial and the potential for a devastating verdict, despite the truth being on my side, makes every morning a struggle to simply get out of bed.
 
@@ -208,6 +208,70 @@ Instrumental_Promotion : (8, The person is working toward a specific goal: a top
 Instrumental_Prevention : (9, The entire current existence is defined by the need to avoid a 'devastating verdict' and the total loss of their assets.)
 
 """
+# --- UTIL FUNCTIONS --- 
+
+def parse_llm_json(response_content, attempt_number=0):
+    """
+    Parses the custom tuple format: Motive_Type : (Score, Justification)
+    Example match: Hedonic_Promotion : (1, The individual is...)
+    """
+    prediction_scores = {}
+    reasoning_blocks = []
+    
+    # Regex breakdown:
+    # ([\w]+)                -> Capture Motive name (e.g., Hedonic_Promotion)
+    # \s*:\s*\(              -> Match the colon and opening parenthesis
+    # (\d+)                  -> Capture the integer score
+    # \s*,\s* -> Match the comma separator
+    # (.*?)                  -> Capture the justification text (non-greedy)
+    # \)                     -> Match the closing parenthesis
+
+    pattern = r"([\w]+)\s*:\s*\(\s*(\d+)\s*,\s*(.*?)\)"
+    
+    matches = re.findall(pattern, response_content, re.MULTILINE | re.DOTALL)
+    
+    for motive_name, score, justification in matches:
+        # Cast score to int
+        prediction_scores[motive_name.strip()] = int(score)
+        # Store justification for the 'Reasoning' log
+        reasoning_blocks.append(f"{motive_name}: {justification.strip()}")
+
+    # Validation: Ensure we got all 26 motives (13 pairs)
+    # Replace JSON_KEYS_LIST with your actual list of 26 keys
+    if not prediction_scores:
+        return None, "Error: No motives found in the expected format."
+        
+    reasoning_text = "\n".join(reasoning_blocks)
+    return prediction_scores, reasoning_text
+
+def get_majority_vote(scores_list):
+    """Returns the most frequent score. In case of a tie, returns the highest."""
+    if not scores_list:
+        return 1
+    counts = Counter(scores_list)
+    max_freq = max(counts.values())
+    # Find all scores that appeared with the maximum frequency
+    modes = [score for score, count in counts.items() if count == max_freq]
+    # Return the highest score among the modes (conservative tie-breaking)
+    return max(modes)
+
+def flatten_motive_dict(nested_dict):
+    """
+    Converts nested motive structures into flat maps.
+    Example: {'Wealth': {'Promotion': 5, 'Prevention': 2}} 
+    becomes {'Wealth_Promotion': 5, 'Wealth_Prevention': 2}
+    """
+    flat = {}
+    if not nested_dict:
+        return flat
+    for motive, focuses in nested_dict.items():
+        if isinstance(focuses, dict):
+            for focus_type, score in focuses.items():
+                flat[f"{motive}_{focus_type}"] = score
+        else:
+            # Handle cases where it might already be flat or a simple value
+            flat[motive] = focuses
+    return flat
 
 # --- 1. LLM Initialization and Database Setup ---
 
@@ -357,112 +421,42 @@ Given a theory and motive list from PHASE 1, event description from PHASE 2, and
 4. Make sure that your reasoning for each motive dimension is objective and ethnically correct.
 
 """
-
-def parse_llm_json(response_content, attempt_number=0):
-    """
-    Parses the custom tuple format: Motive_Type : (Score, Justification)
-    Example match: Hedonic_Promotion : (1, The individual is...)
-    """
-    prediction_scores = {}
-    reasoning_blocks = []
-    
-    # Regex breakdown:
-    # ([\w]+)                -> Capture Motive name (e.g., Hedonic_Promotion)
-    # \s*:\s*\(              -> Match the colon and opening parenthesis
-    # (\d+)                  -> Capture the integer score
-    # \s*,\s* -> Match the comma separator
-    # (.*?)                  -> Capture the justification text (non-greedy)
-    # \)                     -> Match the closing parenthesis
-
-    pattern = r"([\w]+)\s*:\s*\(\s*(\d+)\s*,\s*(.*?)\)"
-    
-    matches = re.findall(pattern, response_content, re.MULTILINE | re.DOTALL)
-    
-    for motive_name, score, justification in matches:
-        # Cast score to int
-        prediction_scores[motive_name.strip()] = int(score)
-        # Store justification for the 'Reasoning' log
-        reasoning_blocks.append(f"{motive_name}: {justification.strip()}")
-
-    # Validation: Ensure we got all 26 motives (13 pairs)
-    # Replace JSON_KEYS_LIST with your actual list of 26 keys
-    if not prediction_scores:
-        return None, "Error: No motives found in the expected format."
-        
-    reasoning_text = "\n".join(reasoning_blocks)
-    return prediction_scores, reasoning_text
-
-def get_majority_vote(scores_list):
-    """Returns the most frequent score. In case of a tie, returns the highest."""
-    if not scores_list:
-        return 1
-    counts = Counter(scores_list)
-    max_freq = max(counts.values())
-    # Find all scores that appeared with the maximum frequency
-    modes = [score for score, count in counts.items() if count == max_freq]
-    # Return the highest score among the modes (conservative tie-breaking)
-    return max(modes)
         
 @st.cache_data(show_spinner=False)
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
     import time
-    
-    prompt = PromptTemplate(
-        input_variables=["event_text", "example1"], 
-        template=MOTIVES_PREDICTION_TEMPLATE
-    )
+    prompt = PromptTemplate(input_variables=["event_text", "example1"], template=MOTIVES_PREDICTION_TEMPLATE)
     chain = prompt | llm_instance
     
-    valid_predictions = [] # These are our "Valid Voters"
-    collected_reasoning = "" 
-    last_failed_response = "" 
+    all_valid_runs = [] # List of dicts: {"scores": {...}, "reasoning": {...}}
 
     for i in range(N_COTS):
         try:
-            st.info(f"Consulting Expert Path {i+1}/{N_COTS}...")
-            response = chain.invoke({
-                "event_text": event_text,
-                "example1": example1 
-            })
-            
-            # The Parser uses the Regex Tuple logic: Motive : (Score, Justification)
-            parsed_scores, current_reasoning = parse_llm_json(response.content, i+1)
+            response = chain.invoke({"event_text": event_text, "example1": example1})
+            # parse_llm_json should return: (dict_of_scores, dict_of_reasoning)
+            # Both dicts should use keys like "Hedonic_Promotion"
+            scores, reasonings = parse_llm_json(response.content, i+1)
 
-            if parsed_scores:
-                # Only add to the voting pool if data is valid
-                valid_predictions.append(parsed_scores)
-                if not collected_reasoning:
-                     collected_reasoning = current_reasoning
-            else:
-                last_failed_response = response.content 
-        
+            if scores:
+                all_valid_runs.append({"scores": scores, "reasoning": reasonings})
+
         except Exception as e:
             st.error(f"Path {i+1} failed: {e}")
-            last_failed_response = f"Invocation failed: {e}" 
-        
         time.sleep(0.4) 
 
-    # --- MAJORITY VOTING LOGIC ---
-    if not valid_predictions:
-        return (None, last_failed_response) 
+    if not all_valid_runs:
+        return None, "All LLM attempts failed."
 
-    final_prediction_map = {}
-    
-    # Iterate through all 26 motive keys
-    for key in MOTIVE_SCORE_KEYS: 
-        # Collect this specific motive's score from all valid voters
-        votes_for_this_motive = [run[key] for run in valid_predictions if key in run]
-        
-        # Determine the winner via Majority Vote
-        final_prediction_map[key] = get_majority_vote(votes_for_this_motive)
+    # --- Compute Majority Vote for the consensus result ---
+    consensus_scores = {}
+    for key in MOTIVE_SCORE_KEYS:
+        votes = [run["scores"][key] for run in all_valid_runs if key in run["scores"]]
+        consensus_scores[key] = get_majority_vote(votes)
 
-    final_result = {
-        "motive_relevance_prediction": final_prediction_map, 
-        "n_cots_used": len(valid_predictions),
-        "llm_appraisal_reasoning": collected_reasoning 
-    }
-    
-    return (final_result, "")
+    return {
+        "consensus_scores": consensus_scores,
+        "all_paths": all_valid_runs # This contains all individual N_COTS data
+    }, ""
 
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
@@ -840,108 +834,118 @@ def show_situation_rating_page():
             st.session_state.page = 'cross_rating'
             st.rerun()
 
+Here is the full, integrated show_cross_rating_page function.
+
+This version incorporates the Majority Voting logic, the Flattening helper for your database schema, the All N_COTS data capture, and the Submission State fix to prevent the "greyed out" UI and scrolling issues.
+Python
+
+def flatten_motive_dict(nested_dict):
+    """Converts {'Motive': {'Promotion': X, 'Prevention': Y}} to flat keys."""
+    flat = {}
+    if not nested_dict: return flat
+    for motive, focuses in nested_dict.items():
+        if isinstance(focuses, dict):
+            for focus_type, score in focuses.items():
+                flat[f"{motive}_{focus_type}"] = score
+        else:
+            flat[motive] = focuses
+    return flat
+
 def show_cross_rating_page():
-    # --- 1. Load the "Cross-Story" (Ensuring it persists across reruns) ---
+    # 1. Logic to persist the comparison story
     if 'cross_participant_situation' not in st.session_state:
-        # Assuming get_random_story_from_db exists in your environment
         try:
-            random_situation = get_random_story_from_db() 
-            st.session_state.cross_participant_situation = random_situation
-        except Exception:
-            st.session_state.cross_participant_situation = "No story available for comparison."
+            st.session_state.cross_participant_situation = get_random_story_from_db()
+        except:
+            st.session_state.cross_participant_situation = "Sample story: I recently faced a challenge at work..."
     
-    random_situation = st.session_state.cross_participant_situation
+    # 2. Check if the user has clicked submit
+    if 'cross_submitted' not in st.session_state:
+        st.session_state.cross_submitted = False
+
+    # --- BRANCH A: PROCESSING STATE (Clears the UI for the 5 LLM runs) ---
+    if st.session_state.cross_submitted:
+        st.header("🧬 System Analysis in Progress")
+        st.markdown("The expert system is now evaluating your narrative across 5 independent reasoning paths to reach a consensus.")
         
-    st.header("🎯 Final Task: Perspective Taking")
-    st.subheader("Event from Another Participant:")
-    
-    with st.container(border=True):
-        st.info(random_situation)
-
-    # --- 2. Initialize Scores ---
-    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
-    
-    if 'cross_motive_scores' not in st.session_state:
-        st.session_state.cross_motive_scores = {
-            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
-        }
-
-    # --- 3. The Assessment Form ---
-    with st.form("cross_rating_form"):
-        st.markdown(f"""
-        Please read the situation above and complete the questionnaire from what you believe was **the other participant's perspective**.
-        
-        **Scale:** 1 = Not Important At All | {RATING_SCALE_MAX} = Extremely Important
-        """)
-
-        cross_scores = st.session_state.cross_motive_scores
-        
-        for m in MOTIVES_FULL:
-            st.markdown("<hr style='margin: 5px 0 10px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 0.95rem; margin-bottom: 5px;'><b>{m['motive']}</b>: {m['Definition']}</p>", unsafe_allow_html=True)
-            
-            col1, col2 = st.columns(2) 
-            with col1:
-                cross_scores[m['motive']]['Promotion'] = st.radio(
-                    f"Focus: {m['Promotion']}", 
-                    options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Promotion'] - 1, 
-                    horizontal=True, 
-                    key=f"cross_{m['motive']}_Promotion"
-                )
-            with col2:
-                cross_scores[m['motive']]['Prevention'] = st.radio(
-                    f"Focus: {m['Prevention']}", 
-                    options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Prevention'] - 1,
-                    horizontal=True, 
-                    key=f"cross_{m['motive']}_Prevention"
-                )
-
-        # --- 4. Final Submission Logic ---
-        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
-            
-            # --- Trigger LLM Majority Vote Prediction ---
-            # This runs silently using the "Expert Paths" logic
-            with st.spinner("Finalizing submission (Running Majority Vote analysis)..."):
-                # Use the function we adapted for Majority Voting
-                llm_result, last_fail = run_self_consistent_appraisal_prediction(
-                    llm, 
-                    st.session_state.final_event_narrative
-                )
+        with st.status("Running Majority Vote Analysis...", expanded=True) as status:
+            # Run our adapted Majority Vote function
+            llm_result, last_fail = run_self_consistent_appraisal_prediction(
+                llm, 
+                st.session_state.final_event_narrative
+            )
             
             if llm_result:
+                status.update(label="Consensus reached. Saving all data points...", state="complete")
+                
+                # Assemble the finalized data object
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                    "participant_id": str(uuid.uuid4()), 
+                    "participant_id": str(uuid.uuid4()),
                     
-                    # Core Narrative Data
+                    # Flattened Participant Data
+                    "baseline_motive_profile": flatten_motive_dict(st.session_state.general_motive_scores),
+                    "baseline_regulatory_focus": flatten_motive_dict(st.session_state.reg_focus_scores),
+                    "own_situation_rating": flatten_motive_dict(st.session_state.situation_motive_scores),
+                    "cross_perspective_rating": flatten_motive_dict(st.session_state.cross_motive_scores),
+                    
+                    # LLM Data (Consensus + All N_COTS Paths)
+                    "llm_consensus_prediction": llm_result["consensus_scores"],
+                    "llm_all_reasoning_paths": llm_result["all_paths"], # Includes individual scores/reasoning maps
+                    
+                    # Qualitative/Narrative Context
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
-                    "interview_history": st.session_state.interview_answers,
-                    
-                    # LLM Appraisal (Majority Vote Winner)
-                    "llm_motive_prediction": llm_result.get('motive_relevance_prediction'),
-                    "llm_reasoning_path": llm_result.get('llm_appraisal_reasoning'),
-                    "llm_confidence_quorum": llm_result.get('n_cots_used'),
-                    
-                    # Participant's Ratings
-                    "baseline_profile": st.session_state.general_motive_scores,
-                    "own_situation_rating": st.session_state.situation_motive_scores,
-                    "cross_perspective_rating": st.session_state.cross_motive_scores,
-                    "cross_situation_text": random_situation
+                    "interview_qa_history": st.session_state.interview_answers,
+                    "cross_situation_text": st.session_state.cross_participant_situation
                 }
                 
                 if save_data(trial_data):
                     st.session_state.page = 'thank_you'
                     st.rerun()
                 else:
-                    st.error("Submission failed: Database connection error.")
+                    st.error("Database save failed. Please try again.")
+                    st.session_state.cross_submitted = False # Allow retry
             else:
-                # Handle total LLM failure
-                st.error("Analysis Error: The system could not reach a consensus on the motive scores.")
-                if last_fail:
-                    with st.expander("Debug: Last Failed Response"):
-                        st.text(last_fail)
+                st.error("The LLM could not generate valid results. Please check your prompt or API connection.")
+                if st.button("Retry Submission"):
+                    st.session_state.cross_submitted = False
+                    st.rerun()
+        return # Stop execution here so the form doesn't show up below
+
+    # --- BRANCH B: ASSESSMENT STATE (Show the Form) ---
+    st.header("🎯 Final Task: Perspective Taking")
+    st.info(f"**Read this story from another participant:**\n\n{st.session_state.cross_participant_situation}")
+
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+    if 'cross_motive_scores' not in st.session_state:
+        st.session_state.cross_motive_scores = {
+            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
+        }
+
+    with st.form("cross_rating_form"):
+        st.write("Rate the relevance of these motives from the perspective of the author above.")
+        
+        cross_scores = st.session_state.cross_motive_scores
+        for m in MOTIVES_FULL:
+            st.markdown(f"**{m['motive']}**: {m['Definition']}")
+            col1, col2 = st.columns(2)
+            with col1:
+                cross_scores[m['motive']]['Promotion'] = st.radio(
+                    f"Focus: {m['Promotion']}", options=RADIO_OPTIONS, 
+                    index=cross_scores[m['motive']]['Promotion'] - 1, 
+                    horizontal=True, key=f"c_{m['motive']}_pro"
+                )
+            with col2:
+                cross_scores[m['motive']]['Prevention'] = st.radio(
+                    f"Focus: {m['Prevention']}", options=RADIO_OPTIONS, 
+                    index=cross_scores[m['motive']]['Prevention'] - 1, 
+                    horizontal=True, key=f"c_{m['motive']}_pre"
+                )
+            st.markdown("---")
+
+        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
+            st.session_state.cross_submitted = True # Switch to Branch A
+            st.rerun()
             
 def show_thank_you_page():
     st.title("✅ Trial Complete")
