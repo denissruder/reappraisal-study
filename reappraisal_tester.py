@@ -9,6 +9,7 @@ import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
+from collections import Counter
 
 # --- 0. Streamlit UI Setup ---
 
@@ -153,25 +154,7 @@ for motive_name, _, _, _ in MOTIVES_GOALS:
 
 JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
 
-# --- RAG DATA STRUCTURES ---
 
-# 1. Core Motive Descriptions (Motive : Description)
-CORE_MOTIVES_RAG_STRING = "\n".join([
-    f"\"{motive[0]}\" : \"{motive[3]}\""
-    for motive in MOTIVES_GOALS
-])
-
-# 2. Promotion Goals (Motive : Goal)
-PROMOTION_GOALS_RAG_STRING = "\n".join([
-    f"\"{motive[0]}\" : \"{motive[1]}\""
-    for motive in MOTIVES_GOALS
-])
-
-# 3. Prevention Goals (Motive : Goal)
-PREVENTION_GOALS_RAG_STRING = "\n".join([
-    f"\"{motive[0]}\" : \"{motive[2]}\""
-    for motive in MOTIVES_GOALS
-])
 
 # --- FOR STREAMLIT PAGE LOGIC ---
 MOTIVES_FULL = [
@@ -179,57 +162,51 @@ MOTIVES_FULL = [
     for m in MOTIVES_GOALS
 ]
 
-# --- RAG Context and Few-Shot Examples ---
-
-RFT_THEORY_RAG = f"""
-# RAG CONTEXT: Regulatory Focus Theory (RFT) Explanation:
-
-Regulatory Focus Theory (RFT), developed by E. Tory Higgins, is a psychological framework that explains two distinct ways individuals pursue goals and regulate behavior. 
-
-**There are 13 core motives (Underlying Needs) and their basic descriptions:**
-{CORE_MOTIVES_RAG_STRING}
-
-Regulatory Focus Theory (RFT) mandates that all motives are assessed along two independent motivational orientations: Promotion (Gains/Ideals) and Prevention (Non-Losses/Oughts).
-
-1. Promotion Focus (Ideals and Gains)
-This focus is oriented toward **ideals, aspirations, and accomplishments**. It is concerned with **advancement, growth, and maximizing positive outcomes (gains)**.
-* Goal: Striving for the presence of positive outcomes (e.g., "becoming rich").
-* Strategy: **Eagerness** (acting fast, seeking opportunities, ensuring "hits").
-* Emotions: Characterized by **Cheerfulness/Dejection** based on whether a gain is achieved or missed.
-* Mindset: "Play to win."
-
-**Goals oriented toward advancement, growth, and achieving positive outcomes:**
-{PROMOTION_GOALS_RAG_STRING}
-
-2. Prevention Focus (Oughts and Non-Losses)
-This focus is oriented toward **duties, responsibilities, and obligations**. It is concerned with **safety, security, and minimizing negative outcomes (losses)**.
-* Goal: Striving for the absence of negative outcomes (e.g., "avoiding poverty").
-* Strategy: **Vigilance** (acting carefully, being thorough, ensuring "correct rejections").
-* Emotions: Characterized by **Quiescence/Agitation** based on whether security is maintained or threatened.
-* Mindset: "Play to not lose."
-
-**Goals oriented toward duties, security, and minimizing negative outcomes:**
-{PREVENTION_GOALS_RAG_STRING}
-
-Individuals rate motives on a scale from **{RATING_SCALE_MIN} (Not at all important)** to **{RATING_SCALE_MAX} (Very important)** to determine their dominant focus.
-"""
+# --- Few-Shot Examples ---
 
 # FEW-SHOT EXAMPLE for Motive Prediction (Raw string, remains the format reference)
-APPRAISAL_FEW_SHOT_EXAMPLE = """
-# FEW-SHOT EXAMPLE (Consistency Principle)
-INPUT SITUATION: "I was publicly criticized by my boss for a mistake I made on a major project. I feel intense shame and worry about my job."
----
-<REASONING>
-1. **Competence Analysis:** Public failure is a direct threat.
-   - Promotion (To succeed): High relevance because the failure means a loss of success (9).
-   - Prevention (To avoid failure): Extremely high relevance because the fear of failure was realized (9).
-2. **Status Analysis:** Public criticism directly impacts social standing.
-   - Promotion (To stand out): Hindered, so highly relevant (7).
-   - Prevention (To avoid being ignored): Hindered, fear of negative attention was realized (8).
-3. **Physical Analysis:** No direct physical impact. All scores low (1).
-</REASONING>
-OUTPUT MOTIVE RELEVANCE PREDICTION:
-{"motive_relevance_prediction": {"Hedonic_Promotion": 4, "Hedonic_Prevention": 4, "Physical_Promotion": 1, "Physical_Prevention": 1, "Wealth_Promotion": 2, "Wealth_Prevention": 3, "Predictability_Promotion": 6, "Predictability_Prevention": 7, "Competence_Promotion": 9, "Competence_Prevention": 9, "Growth_Promotion": 5, "Growth_Prevention": 4, "Autonomy_Promotion": 3, "Autonomy_Prevention": 5, "Relatedness_Promotion": 4, "Relatedness_Prevention": 6, "Acceptance_Promotion": 7, "Acceptance_Prevention": 8, "Status_Promotion": 7, "Status_Prevention": 8, "Responsibility_Promotion": 7, "Responsibility_Prevention": 9, "Meaning_Promotion": 3, "Meaning_Prevention": 3, "Instrumental_Promotion": 7, "Instrumental_Prevention": 8}}
+example1 = """
+Event: I am falsely accused of a serious, high-profile intellectual property theft by a former business partner. The initial police report and subsequent media coverage have already ruined my professional reputation, causing clients to drop me instantly and my business to implode overnight. I’ve had to mortgage my home to cover the massive legal defense costs, retaining a top-tier lawyer just to have a chance against the well-funded opponent. The case is moving slowly, and the discovery phase requires me to spend countless hours reviewing old documents and communications, reliving the breakdown of the partnership. I know I am innocent, but the burden of proof, the aggressive legal tactics of the other side, and the sheer length of the process are mentally debilitating. I receive constant, hostile messages online from strangers who have read the biased media reports. My savings are gone, my career is a wreck, and the stress has led to profound marital strain. The anticipation of the trial and the potential for a devastating verdict, despite the truth being on my side, makes every morning a struggle to simply get out of bed.
+
+Hedonic_Promotion : (1, The individual is currently in a state of crisis management; seeking pleasure or 'feeling good' is not a priority compared to survival),
+Hedonic_Prevention : (9, The primary emotional state is avoiding profound mental distress, debilitating stress, and the misery of the current situation.),
+
+Physical_Promotion : (2, There is little focus on physical optimization or health improvement.),
+Physical_Prevention : (7, The stress is described as 'mentally debilitating,' suggesting a high priority on preventing a complete physical or nervous breakdown.),
+
+Wealth_Promotion : (2, The person is not trying to get rich; they are in a defensive financial posture.),
+Wealth_Prevention : (9, The loss of savings, the mortgaged home, and the 'business imploding' make avoiding total poverty a top-tier motive.),
+
+Predictability_Promotion : (3, There is less focus on gaining new understanding and more on the uncertainty of the legal outcome.),
+Predictability_Prevention : (8, The 'anticipation of the trial' and the slow process create a desperate need to avoid the confusion and chaos of the legal system.),
+
+Competence_Promotion : (6, The desire to eventually succeed and be exonerated is present but overshadowed by defensive needs.),
+Competence_Prevention : (9, Avoiding 'failure' in the form of a 'devastating verdict' is a matter of professional and personal survival.),
+
+Growth_Promotion : (1, The situation is about survival, not personal growth or learning; the person is reliving a breakdown, not moving forward.),
+Growth_Prevention : (9, The primary focus is stopping the 'wreck' of a career and avoiding the further decline of their life's work.),
+
+Autonomy_Promotion : (4, The person desires their life back, but they are currently trapped by the legal process.),
+Autonomy_Prevention : (9, They are being forced to spend 'countless hours' on discovery and are reacting to 'aggressive legal tactics,' creating a strong desire not to be controlled by the opponent.),
+
+Relatedness_Promotion : (3, While they likely want connection, the 'marital strain' suggests they are currently unable to focus on building intimacy.),
+Relatedness_Prevention : (9, A very high focus on avoiding the 'loneliness' caused by the withdrawal of clients and the strain on the marriage.),
+
+Acceptance_Promotion : (4, Gaining new friends is irrelevant; they want their old life back.),
+Acceptance_Prevention : (9, The 'ruined professional reputation' and 'hostile messages from strangers' make avoiding social disapproval and being an outcast a dominant motive.),
+
+Status_Promotion : (3, The person is not trying to 'stand out' anymore; they are trying to recover what was lost.),
+Status_Prevention : (9, Avoiding the shame of being labeled a 'thief' and the public stigma of the 'biased media reports' is critical.),
+
+Responsibility_Promotion : (5, The person wants to live up to the image of an innocent partner/spouse.),
+Responsibility_Prevention : (9, A major driver is not 'letting down' their family, especially given the financial risks like the mortgaged home.),
+
+Meaning_Promotion : (7, The person is motivated by the 'truth being on my side,' suggesting a desire to ensure that truth and justice prevail.),
+Meaning_Prevention : (8, The struggle to 'get out of bed' suggests a fear that their life and hard work are being 'wasted' by a lie.),
+
+Instrumental_Promotion : (8, The person is working toward a specific goal: a top-tier lawyer and a trial victory.),
+Instrumental_Prevention : (9, The entire current existence is defined by the need to avoid a 'devastating verdict' and the total loss of their assets.)
+
 """
 
 # --- 1. LLM Initialization and Database Setup ---
@@ -299,192 +276,194 @@ def get_random_story_from_db():
 
 # --- LLM APPRAISAL PREDICTION TEMPLATE ---
 
-APPRAISAL_PREDICTION_TEMPLATE = f"""
-# PERSONA: APPRAISAL ANALYST (Expert Psychological Assessor)
-You are an objective Appraisal Analyst. Your task is to predict the **Motivational Relevance Profile** of the provided situation. This task adheres to **ConVe principles** (Consistency and Verifiability).
+MOTIVES_PREDICTION_TEMPLATE = f"""
 
---- RAG---
-{RFT_THEORY_RAG}
+You are an expert in human psychology. 
 
---- Few-Shot Example ---
-{APPRAISAL_FEW_SHOT_EXAMPLE}
+--- Chain-of-Thought ---
 
---- COT ---
-1. **Analyze:** Carefully review the SITUATION DESCRIPTION below.
-2. **You MUST provide your step-by-step reasoning within a <REASONING> block.**
+1. You will read a related theory, list of motives with their promotion and prevention focus pairs, and a scale to be assigned for each motive.
 
---- COVe
-1. Make sure that all ratings are on a scale from {RATING_SCALE_MAX} (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
-2. **Output Format:** The output MUST be a valid JSON object. It MUST start with the key "motive_relevance_prediction". The inner dictionary MUST contain **all 26 keys** listed below, with a score from 1 to {RATING_SCALE_MAX}.
-3. Make sure all the reasoning is ethnical
+2. You will read a first-hand description of an event that elicited an emotional reaction.
 
-REQUIRED JSON KEYS (26 total): {{required_keys}}
+3. You will read a few output examples that you need to follow.
 
---- TASK INPUT ---
-SITUATION DESCRIPTION: {{event_text}}
+4. Your will guess how important motives were to a person may have considered in a given event.  
 
---- YOUR PREDICTION ---
-Begin the analysis below.
 
-<REASONING>
-1. [Analyze Event Impact on Motive 1: Promotion, Prevention]
-2. [Analyze Event Impact on Motive 2: Promotion, Prevention]
-3. ...
-</REASONING>
+-- PHASE 1: Chain-of-Thought & Chain-of-Verification Reasoning --- 
 
-OUTPUT MOTIVE RELEVANCE PREDICTION (Provide ONLY the JSON block, using the structure shown in the Few-Shot Example):
+A motive is an outcome that the person desires to approach or to avoid.  
+
+People usually have many motives, they desire to approach or avoid many things in life. However, within a given situation, usually only a subset of all possible motives are important to the person.  
+
+The person may or may not be consciously aware of this desire. Conscious awareness is not required for a motive to exert force on behavior, that is to explain why someone behaved the way they did. This means that some of the momentarily important motives can be verbally expressed in the texts you read. However, other may remain somewhat hidden and you can try to infer their importance from the context and the indirect clues the text provides.  
+
+There are 13 core motives organized in closely related promotion and prevention pairs.  
+
+List of core motives: Hedonic, Physical, Wealth, Predictability, Competence, Growth, Autonomy, Relatedness, Acceptance, Status, Responsibility, Meaning, Instrumental
+
+List of promotion motives: 
+    Hedonic_Promotion : To feel good, 
+    Physical_Promotion : To be in good health,
+    Wealth_Promotion : To have money,
+    Predictability_Promotion : To understand,
+    Competence_Promotion : To succeed,
+    Growth_Promotion : To learn and grow,
+    Autonomy_Promotion : To be free to decide,
+    Relatedness_Promotion : To feel connected,
+    Acceptance_Promotion : To be liked,
+    Status_Promotion : To stand out,
+    Responsibility_Promotion : To live up to expectations,
+    Meaning_Promotion : To make a difference,
+    Instrumental_Promotion : To gain something
+
+List of prevention motives: 
+    Hedonic_Prevention: To avoid feeling bad,
+    Physical_Prevention: To avoid injury or illness,
+    Wealth_Prevention: To avoid losing money,
+    Predictability_Prevention: To avoid confusion or chaos,
+    Competence_Prevention: To avoid failure,
+    Growth_Prevention: To avoid stagnation or regressing,
+    Autonomy_Prevention: To avoid being controlled by others,
+    Relatedness_Prevention: To avoid feeling lonely or isolated,
+    Acceptance_Prevention: To avoid being rejected or disliked,
+    Status_Prevention: To avoid losing face or reputation,
+    Responsibility_Prevention: To avoid letting others down,
+    Meaning_Prevention: To avoid leading a pointless life
+
+Motives are rated on a scale from {RATING_SCALE_MIN} (Not at all important) to **{RATING_SCALE_MAX} (Very important) to determine their dominant focus.
+
+-- PHASE 2: Chain-of-Thought & Chain-of-Verification Reasoning --- 
+
+Event: {{event_text}} 
+
+--- PHASE 3: Chain-of-Thought & Chain-of-Verification Reasoning --- 
+
+Example 1: {{example1}}
+
+--- PHASE 4: Chain-of-Thought & Chain-of-Verification Reasoning --- 
+
+Given a theory and motive list from PHASE 1, event description from PHASE 2, and output examples from PHASE 3, your main task is to guess how important each motive was to a person in this event.   
+
+--- Chain-of-Verification ---
+
+1. Make sure that you clearly understand the theory, motive dimensions, and that all ratings are on a scale from {RATING_SCALE_MAX} (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
+
+2. Make sure that the event text is meaningful and wasn't copied from the internet. 
+
+3. Make sure you follow the exact tuple format from the examples: Motive_Type : (Score, Concise justification).
+
+4. Make sure that your reasoning for each motive dimension is objective and ethnically correct.
+
 """
 
 def parse_llm_json(response_content, attempt_number=0):
-    """Safely extracts and parses the JSON block and reasoning from the LLM's response."""
+    """
+    Parses the custom tuple format: Motive_Type : (Score, Justification)
+    Example match: Hedonic_Promotion : (1, The individual is...)
+    """
+    prediction_scores = {}
+    reasoning_blocks = []
     
-    # 1. Extract Reasoning
-    reasoning_match = re.search(r'<REASONING>(.*?)</REASONING>', response_content, re.DOTALL)
-    reasoning_text = reasoning_match.group(1).strip() if reasoning_match else "Reasoning block not found."
+    # Regex breakdown:
+    # ([\w]+)                -> Capture Motive name (e.g., Hedonic_Promotion)
+    # \s*:\s*\(              -> Match the colon and opening parenthesis
+    # (\d+)                  -> Capture the integer score
+    # \s*,\s* -> Match the comma separator
+    # (.*?)                  -> Capture the justification text (non-greedy)
+    # \)                     -> Match the closing parenthesis
 
-    # 2. Heuristically Extract JSON String (Focusing on robust extraction)
-    json_string = ""
-    try:
-        # Find the starting point for the JSON by looking for the header and the first brace
-        start_index = response_content.find("OUTPUT MOTIVE RELEVANCE PREDICTION:")
-        if start_index == -1:
-            raise ValueError("JSON header not found.")
-            
-        json_string_candidate = response_content[start_index:]
-        
-        json_start = json_string_candidate.find('{')
-        if json_start == -1:
-            raise ValueError("JSON starting brace not found after header.")
-            
-        json_string_candidate = json_string_candidate[json_start:]
-        
-        # Simple brace counter to find the end of the top-level JSON block
-        brace_count = 0
-        json_end = -1
-        for i, char in enumerate(json_string_candidate):
-            if char == '{':
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
-                if brace_count == 0:
-                    json_end = i
-                    break
-        
-        if json_end == -1:
-             raise ValueError("JSON block is incomplete or ill-formed (unbalanced braces).")
+    pattern = r"([\w]+)\s*:\s*\(\s*(\d+)\s*,\s*(.*?)\)"
+    
+    matches = re.findall(pattern, response_content, re.MULTILINE | re.DOTALL)
+    
+    for motive_name, score, justification in matches:
+        # Cast score to int
+        prediction_scores[motive_name.strip()] = int(score)
+        # Store justification for the 'Reasoning' log
+        reasoning_blocks.append(f"{motive_name}: {justification.strip()}")
 
-        json_string = json_string_candidate[:json_end + 1].strip()
+    # Validation: Ensure we got all 26 motives (13 pairs)
+    # Replace JSON_KEYS_LIST with your actual list of 26 keys
+    if not prediction_scores:
+        return None, "Error: No motives found in the expected format."
         
-    except Exception as e:
-        st.error(f"Parse Error (Attempt {attempt_number}): Could not locate or isolate JSON block. {e}")
-        # Return None for scores, but return the extracted reasoning
-        return (None, reasoning_text)
+    reasoning_text = "\n".join(reasoning_blocks)
+    return prediction_scores, reasoning_text
 
-    # 3. JSON Parsing and Validation
-    try:
-        analysis_data = json.loads(json_string, strict=False)
-        
-        prediction_scores = analysis_data.get("motive_relevance_prediction")
-        if not prediction_scores:
-            raise ValueError("Key 'motive_relevance_prediction' not found in JSON output.")
-
-        # If validation checks were here, they would execute now...
-        
-        # Return the actual scores dictionary and the reasoning
-        return ({k: int(round(float(v))) for k, v in prediction_scores.items()}, reasoning_text)
-            
-    except json.JSONDecodeError as e:
-        st.error(f"Parse Error (Attempt {attempt_number}): JSON decoding failed. Error: {e}")
-        with st.expander(f"❌ DEBUG: View Raw Content that Failed to Parse (Attempt {attempt_number})"):
-             st.code(response_content, language="text") 
-        return (None, reasoning_text)
-        
-    except Exception as e:
-        st.error(f"Parse Error (Attempt {attempt_number}): General exception during parsing: {e}")
-        return (None, reasoning_text)
+def get_majority_vote(scores_list):
+    """Returns the most frequent score. In case of a tie, returns the highest."""
+    if not scores_list:
+        return 1
+    counts = Counter(scores_list)
+    max_freq = max(counts.values())
+    # Find all scores that appeared with the maximum frequency
+    modes = [score for score, count in counts.items() if count == max_freq]
+    # Return the highest score among the modes (conservative tie-breaking)
+    return max(modes)
         
 @st.cache_data(show_spinner=False)
 def run_self_consistent_appraisal_prediction(llm_instance, event_text):
-    """
-    Executes the LLM N_COTS times to generate a self-consistent prediction.
-    Returns the aggregated prediction or (None, last_failed_response_content) on failure.
-    """
+    import time
     
-    # Assuming prompt and chain setup are done before this function call 
-    # OR that the prompt setup is moved inside this function (recommended for LangChain)
     prompt = PromptTemplate(
-        input_variables=["event_text", "required_keys"], 
-        template=APPRAISAL_PREDICTION_TEMPLATE
+        input_variables=["event_text", "example1"], 
+        template=MOTIVES_PREDICTION_TEMPLATE
     )
     chain = prompt | llm_instance
     
-    # Placeholder for N_COTS (must be defined globally, e.g., N_COTS = 5)
-    # The snippet doesn't show N_COTS, but it's required for the loop.
-    N_COTS = 5 
-    
-    valid_predictions = []
+    valid_predictions = [] # These are our "Valid Voters"
     collected_reasoning = "" 
     last_failed_response = "" 
 
-    # Run the model multiple times (Self-Consistency)
     for i in range(N_COTS):
         try:
-            st.info(f"Generating prediction attempt {i+1}/{N_COTS}...")
-            
-            # Invoke chain with both variables
+            st.info(f"Consulting Expert Path {i+1}/{N_COTS}...")
             response = chain.invoke({
-                "event_text": event_text, 
-                "required_keys": JSON_KEYS_LIST # Assuming JSON_KEYS_LIST is globally defined
+                "event_text": event_text,
+                "example1": example1 
             })
             
-            response_content = response.content
-            
-            if not response_content:
-                st.warning(f"DEBUG: Attempt {i+1} received an empty response.")
-                continue
-
-            # parse_llm_json returns a tuple (scores, reasoning)
-            parsed_scores, current_reasoning = parse_llm_json(response_content, attempt_number=i+1) 
+            # The Parser uses the Regex Tuple logic: Motive : (Score, Justification)
+            parsed_scores, current_reasoning = parse_llm_json(response.content, i+1)
 
             if parsed_scores:
+                # Only add to the voting pool if data is valid
                 valid_predictions.append(parsed_scores)
-                st.success(f"Prediction {i+1} successful and valid.")
-                
-                # Capture reasoning from the first successful run
                 if not collected_reasoning:
                      collected_reasoning = current_reasoning
-
             else:
-                st.warning(f"Prediction {i+1} failed validation (parsing/structure error). Skipping.")
-                last_failed_response = response_content 
+                last_failed_response = response.content 
         
         except Exception as e:
-            # THIS IS THE MISSING BLOCK
-            st.error(f"Error during LLM Appraisal Prediction run {i+1} (Invocation failed): {e}")
+            st.error(f"Path {i+1} failed: {e}")
             last_failed_response = f"Invocation failed: {e}" 
         
-        time.sleep(0.5) 
+        time.sleep(0.4) 
 
+    # --- MAJORITY VOTING LOGIC ---
     if not valid_predictions:
-        st.error(f"❌ Final Failure: All {N_COTS} LLM attempts failed to produce a valid prediction.")
         return (None, last_failed_response) 
 
-    # Aggregation step (Self-Consistency)
-    final_prediction = {}
-    # Assuming MOTIVE_SCORE_KEYS is globally defined
+    final_prediction_map = {}
+    
+    # Iterate through all 26 motive keys
     for key in MOTIVE_SCORE_KEYS: 
-        scores = [p[key] for p in valid_predictions]
-        final_prediction[key] = int(round(sum(scores) / len(scores)))
+        # Collect this specific motive's score from all valid voters
+        votes_for_this_motive = [run[key] for run in valid_predictions if key in run]
+        
+        # Determine the winner via Majority Vote
+        final_prediction_map[key] = get_majority_vote(votes_for_this_motive)
 
-    # Add the collected reasoning to the final result dictionary
     final_result = {
-        "motive_relevance_prediction": final_prediction, 
+        "motive_relevance_prediction": final_prediction_map, 
         "n_cots_used": len(valid_predictions),
         "llm_appraisal_reasoning": collected_reasoning 
     }
     
     return (final_result, "")
-    
+
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
 # --- Dynamic Interview Logic and Synthesis (Uses first-person 'I') ---
@@ -862,22 +841,24 @@ def show_situation_rating_page():
             st.rerun()
 
 def show_cross_rating_page():
-    # --- Fetch/Load a random story from the DB (Only once) ---
-    # CRITICAL FIX: Load only once. Otherwise the story changes on every widget click.
+    # --- 1. Load the "Cross-Story" (Ensuring it persists across reruns) ---
     if 'cross_participant_situation' not in st.session_state:
-        # Assuming get_random_story_from_db() is defined elsewhere
-        random_situation = get_random_story_from_db() 
-        st.session_state.cross_participant_situation = random_situation
-    else:
-        random_situation = st.session_state.cross_participant_situation
+        # Assuming get_random_story_from_db exists in your environment
+        try:
+            random_situation = get_random_story_from_db() 
+            st.session_state.cross_participant_situation = random_situation
+        except Exception:
+            st.session_state.cross_participant_situation = "No story available for comparison."
+    
+    random_situation = st.session_state.cross_participant_situation
         
+    st.header("🎯 Final Task: Perspective Taking")
     st.subheader("Event from Another Participant:")
-    st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
     
     with st.container(border=True):
         st.info(random_situation)
 
-    # Define the 1-9 radio options
+    # --- 2. Initialize Scores ---
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
     
     if 'cross_motive_scores' not in st.session_state:
@@ -885,88 +866,82 @@ def show_cross_rating_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
+    # --- 3. The Assessment Form ---
     with st.form("cross_rating_form"):
-        st.markdown("### Cross-Participant Appraisal")
-        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
         st.markdown(f"""
-        Finally, please read the situation described by **another participant** and complete the same relevance questionnaire from what you believe was **their perspective**.
+        Please read the situation above and complete the questionnaire from what you believe was **the other participant's perspective**.
+        
+        **Scale:** 1 = Not Important At All | {RATING_SCALE_MAX} = Extremely Important
         """)
-        st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
         cross_scores = st.session_state.cross_motive_scores
         
         for m in MOTIVES_FULL:
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-            st.markdown(f"<p style='font-size: 0.9rem; margin-bottom: 15px;'><b>{m['motive']}</b> - {m['Definition']}</p>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 5px 0 10px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown(f"<p style='font-size: 0.95rem; margin-bottom: 5px;'><b>{m['motive']}</b>: {m['Definition']}</p>", unsafe_allow_html=True)
             
-            # Create two equally sized columns inside the form
             col1, col2 = st.columns(2) 
-                
             with col1:
-                # Promotion Focus
-                # FIX: Use cross_scores for assignment and indexing
                 cross_scores[m['motive']]['Promotion'] = st.radio(
-                    f"{m['Promotion']}", 
+                    f"Focus: {m['Promotion']}", 
                     options=RADIO_OPTIONS, 
                     index=cross_scores[m['motive']]['Promotion'] - 1, 
                     horizontal=True, 
                     key=f"cross_{m['motive']}_Promotion"
                 )
-                
             with col2:
-                # Prevention Focus
-                # FIX: Use cross_scores for assignment
-                # CRITICAL FIX: Use 'Prevention' for the index lookup
                 cross_scores[m['motive']]['Prevention'] = st.radio(
-                    f"{m['Prevention']}", 
+                    f"Focus: {m['Prevention']}", 
                     options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Prevention'] - 1, # Fixed index lookup
+                    index=cross_scores[m['motive']]['Prevention'] - 1,
                     horizontal=True, 
                     key=f"cross_{m['motive']}_Prevention"
                 )
 
+        # --- 4. Final Submission Logic ---
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
-            st.session_state.cross_participant_situation = random_situation
             
-            # --- Run LLM Prediction Silently and Early ---
-            llm_prediction_result = None
-            last_failed_response = ""
-            with st.spinner("Finalizing study submission (Running system checks in background)..."):
-                # Assuming llm, run_self_consistent_appraisal_prediction are globally available
-                llm_prediction_result, last_failed_response = run_self_consistent_appraisal_prediction(llm, st.session_state.final_event_narrative)
+            # --- Trigger LLM Majority Vote Prediction ---
+            # This runs silently using the "Expert Paths" logic
+            with st.spinner("Finalizing submission (Running Majority Vote analysis)..."):
+                # Use the function we adapted for Majority Voting
+                llm_result, last_fail = run_self_consistent_appraisal_prediction(
+                    llm, 
+                    st.session_state.final_event_narrative
+                )
             
-            if llm_prediction_result:
-                # Assuming datetime, uuid, save_data are globally available
+            if llm_result:
                 trial_data = {
-                    "timestamp": datetime.datetime.now(datetime.timezone.utc),
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "participant_id": str(uuid.uuid4()), 
                     
-                    "baseline_motive_profile": st.session_state.general_motive_scores,
-                    "baseline_regulatory_focus": st.session_state.reg_focus_scores,
-                    "interview_qa_history": st.session_state.interview_answers, 
+                    # Core Narrative Data
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
-                    "llm_motive_relevance_prediction": llm_prediction_result.get('motive_relevance_prediction'),
-                    "llm_n_cots_used": llm_prediction_result.get('n_cots_used'),
-                    "situation_motive_relevance_rating": st.session_state.situation_motive_scores,
-                    "cross_participant_situation": st.session_state.cross_participant_situation,
-                    "cross_participant_motive_rating": st.session_state.cross_motive_scores,
+                    "interview_history": st.session_state.interview_answers,
+                    
+                    # LLM Appraisal (Majority Vote Winner)
+                    "llm_motive_prediction": llm_result.get('motive_relevance_prediction'),
+                    "llm_reasoning_path": llm_result.get('llm_appraisal_reasoning'),
+                    "llm_confidence_quorum": llm_result.get('n_cots_used'),
+                    
+                    # Participant's Ratings
+                    "baseline_profile": st.session_state.general_motive_scores,
+                    "own_situation_rating": st.session_state.situation_motive_scores,
+                    "cross_perspective_rating": st.session_state.cross_motive_scores,
+                    "cross_situation_text": random_situation
                 }
                 
                 if save_data(trial_data):
                     st.session_state.page = 'thank_you'
+                    st.rerun()
                 else:
-                    st.error("Data saving failed. Please try submitting again.")
-                    return 
+                    st.error("Submission failed: Database connection error.")
             else:
-                st.error("Submission failed. The system was unable to generate a valid prediction after multiple attempts. This usually means the LLM output was malformed (e.g., non-JSON, missing keys, or scores out of range).")
-                
-                if last_failed_response:
-                    st.subheader("Last Failed LLM Response (for debugging):")
-                    st.code(last_failed_response, language="json")
-                return
-            
-            scroll_to_top_forced() 
-            st.rerun()
+                # Handle total LLM failure
+                st.error("Analysis Error: The system could not reach a consensus on the motive scores.")
+                if last_fail:
+                    with st.expander("Debug: Last Failed Response"):
+                        st.text(last_fail)
             
 def show_thank_you_page():
     st.title("✅ Trial Complete")
