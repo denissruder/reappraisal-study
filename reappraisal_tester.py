@@ -256,20 +256,14 @@ def get_majority_vote(scores_list):
     return max(modes)
 
 def flatten_motive_dict(nested_dict):
-    """
-    Converts nested motive structures into flat maps.
-    Example: {'Wealth': {'Promotion': 5, 'Prevention': 2}} 
-    becomes {'Wealth_Promotion': 5, 'Wealth_Prevention': 2}
-    """
+    """Converts {'Motive': {'Promotion': X, 'Prevention': Y}} to flat keys."""
     flat = {}
-    if not nested_dict:
-        return flat
+    if not nested_dict: return flat
     for motive, focuses in nested_dict.items():
         if isinstance(focuses, dict):
             for focus_type, score in focuses.items():
                 flat[f"{motive}_{focus_type}"] = score
         else:
-            # Handle cases where it might already be flat or a simple value
             flat[motive] = focuses
     return flat
 
@@ -833,23 +827,6 @@ def show_situation_rating_page():
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
             st.session_state.page = 'cross_rating'
             st.rerun()
-
-Here is the full, integrated show_cross_rating_page function.
-
-This version incorporates the Majority Voting logic, the Flattening helper for your database schema, the All N_COTS data capture, and the Submission State fix to prevent the "greyed out" UI and scrolling issues.
-Python
-
-def flatten_motive_dict(nested_dict):
-    """Converts {'Motive': {'Promotion': X, 'Prevention': Y}} to flat keys."""
-    flat = {}
-    if not nested_dict: return flat
-    for motive, focuses in nested_dict.items():
-        if isinstance(focuses, dict):
-            for focus_type, score in focuses.items():
-                flat[f"{motive}_{focus_type}"] = score
-        else:
-            flat[motive] = focuses
-    return flat
 
 def show_cross_rating_page():
     # 1. Logic to persist the comparison story
