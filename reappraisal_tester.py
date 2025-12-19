@@ -925,11 +925,28 @@ def show_cross_rating_page():
         st.session_state.cross_motive_scores = {m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL}
 
     with st.form("cross_rating_form"):
-        # (Rendering loops for Motives as previously discussed)
-        # ...
-        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
-            st.session_state.cross_submitted = True
-            st.rerun()
+            st.write("Rate the motives based on the participant's perspective above:")
+            
+            for m in MOTIVES_FULL:
+                st.markdown(f"**{m['motive']}**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.session_state.cross_motive_scores[m['motive']]['Promotion'] = st.radio(
+                        f"Focus: {m['Promotion']}", options=RADIO_OPTIONS, horizontal=True,
+                        index=st.session_state.cross_motive_scores[m['motive']]['Promotion'] - 1,
+                        key=f"c_{m['motive']}_pro"
+                    )
+                with col2:
+                    st.session_state.cross_motive_scores[m['motive']]['Prevention'] = st.radio(
+                        f"Focus: {m['Prevention']}", options=RADIO_OPTIONS, horizontal=True,
+                        index=st.session_state.cross_motive_scores[m['motive']]['Prevention'] - 1,
+                        key=f"c_{m['motive']}_pre"
+                    )
+                st.markdown("---")
+    
+            if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
+                st.session_state.cross_submitted = True
+                st.rerun()
             
 def show_thank_you_page():
     st.title("✅ Trial Complete")
