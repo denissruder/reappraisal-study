@@ -829,50 +829,52 @@ def show_situation_rating_page():
             st.rerun()
 
 def show_cross_rating_page():
-    # 1. Logic to persist the comparison story
+    # 1. Load the comparison story once
     if 'cross_participant_situation' not in st.session_state:
         try:
             st.session_state.cross_participant_situation = get_random_story_from_db()
         except:
             st.session_state.cross_participant_situation = "Sample story: I recently faced a challenge at work..."
     
-    # 2. Check if the user has clicked submit
+    # Initialize the submission flag
     if 'cross_submitted' not in st.session_state:
         st.session_state.cross_submitted = False
 
-    # --- BRANCH A: PROCESSING STATE (Clears the UI for the 5 LLM runs) ---
+    # --- BRANCH A: PROCESSING STATE (The "Expert Analysis" View) ---
     if st.session_state.cross_submitted:
-        st.header("🧬 System Analysis in Progress")
-        st.markdown("The expert system is now evaluating your narrative across 5 independent reasoning paths to reach a consensus.")
+        # CRITICAL UI FIX: Force the browser to scroll to the top automatically
+        st.markdown("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", unsafe_allow_html=True)
         
-        with st.status("Running Majority Vote Analysis...", expanded=True) as status:
-            # Run our adapted Majority Vote function
+        st.header("🧬 Expert Consensus Engine")
+        st.write("Please wait while the system evaluates the narrative across multiple reasoning paths.")
+        
+        with st.status("Running 5-path Majority Vote analysis...", expanded=True) as status:
+            # Execute the Self-Consistency loop (Logic we built previously)
             llm_result, last_fail = run_self_consistent_appraisal_prediction(
                 llm, 
                 st.session_state.final_event_narrative
             )
             
             if llm_result:
-                status.update(label="Consensus reached. Saving all data points...", state="complete")
+                status.update(label="Analysis complete! Storing research data...", state="complete")
                 
-                # Assemble the finalized data object
+                # Assemble the research data with the flat schema
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "participant_id": str(uuid.uuid4()),
                     
-                    # Flattened Participant Data
+                    # Flattened Maps (Motive_Focus: Score)
                     "baseline_motive_profile": flatten_motive_dict(st.session_state.general_motive_scores),
                     "baseline_regulatory_focus": flatten_motive_dict(st.session_state.reg_focus_scores),
                     "own_situation_rating": flatten_motive_dict(st.session_state.situation_motive_scores),
                     "cross_perspective_rating": flatten_motive_dict(st.session_state.cross_motive_scores),
                     
-                    # LLM Data (Consensus + All N_COTS Paths)
+                    # LLM Results
                     "llm_consensus_prediction": llm_result["consensus_scores"],
-                    "llm_all_reasoning_paths": llm_result["all_paths"], # Includes individual scores/reasoning maps
+                    "llm_all_reasoning_paths": llm_result["all_paths"], # Saves all 5 scores + justifications
                     
-                    # Qualitative/Narrative Context
+                    # Narrative Context
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
-                    "interview_qa_history": st.session_state.interview_answers,
                     "cross_situation_text": st.session_state.cross_participant_situation
                 }
                 
@@ -880,48 +882,48 @@ def show_cross_rating_page():
                     st.session_state.page = 'thank_you'
                     st.rerun()
                 else:
-                    st.error("Database save failed. Please try again.")
-                    st.session_state.cross_submitted = False # Allow retry
+                    st.error("Save failed. Connection error.")
+                    if st.button("Try Saving Again"): st.rerun()
             else:
-                st.error("The LLM could not generate valid results. Please check your prompt or API connection.")
-                if st.button("Retry Submission"):
+                st.error("The system failed to reach a consensus.")
+                if st.button("Go Back and Review"):
                     st.session_state.cross_submitted = False
                     st.rerun()
-        return # Stop execution here so the form doesn't show up below
+        return
 
-    # --- BRANCH B: ASSESSMENT STATE (Show the Form) ---
+    # --- BRANCH B: INPUT STATE (The Form View) ---
     st.header("🎯 Final Task: Perspective Taking")
-    st.info(f"**Read this story from another participant:**\n\n{st.session_state.cross_participant_situation}")
+    
+    with st.container(border=True):
+        st.markdown("**Read this event from another participant:**")
+        st.info(st.session_state.cross_participant_situation)
 
-    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
+    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1))
     if 'cross_motive_scores' not in st.session_state:
-        st.session_state.cross_motive_scores = {
-            m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
-        }
+        st.session_state.cross_motive_scores = {m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL}
 
     with st.form("cross_rating_form"):
-        st.write("Rate the relevance of these motives from the perspective of the author above.")
+        st.write("Rate the motives based on the participant's perspective above:")
         
-        cross_scores = st.session_state.cross_motive_scores
         for m in MOTIVES_FULL:
-            st.markdown(f"**{m['motive']}**: {m['Definition']}")
+            st.markdown(f"**{m['motive']}**")
             col1, col2 = st.columns(2)
             with col1:
-                cross_scores[m['motive']]['Promotion'] = st.radio(
-                    f"Focus: {m['Promotion']}", options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Promotion'] - 1, 
-                    horizontal=True, key=f"c_{m['motive']}_pro"
+                st.session_state.cross_motive_scores[m['motive']]['Promotion'] = st.radio(
+                    f"Focus: {m['Promotion']}", options=RADIO_OPTIONS, horizontal=True,
+                    index=st.session_state.cross_motive_scores[m['motive']]['Promotion'] - 1,
+                    key=f"c_{m['motive']}_pro"
                 )
             with col2:
-                cross_scores[m['motive']]['Prevention'] = st.radio(
-                    f"Focus: {m['Prevention']}", options=RADIO_OPTIONS, 
-                    index=cross_scores[m['motive']]['Prevention'] - 1, 
-                    horizontal=True, key=f"c_{m['motive']}_pre"
+                st.session_state.cross_motive_scores[m['motive']]['Prevention'] = st.radio(
+                    f"Focus: {m['Prevention']}", options=RADIO_OPTIONS, horizontal=True,
+                    index=st.session_state.cross_motive_scores[m['motive']]['Prevention'] - 1,
+                    key=f"c_{m['motive']}_pre"
                 )
             st.markdown("---")
 
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
-            st.session_state.cross_submitted = True # Switch to Branch A
+            st.session_state.cross_submitted = True
             st.rerun()
             
 def show_thank_you_page():
