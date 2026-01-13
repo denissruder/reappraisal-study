@@ -734,16 +734,14 @@ def show_situation_rating_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
-    with st.form("situation_rating_form"):
-        st.markdown("### Situation Appraisal: Your Perspectives")
-        st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+    # Header and Pop-up (showing narrative) outside the form
+    st.header("🧐 Situation Appraisal")
+    st.info(f"**Your Narrative:**\n\n{st.session_state.final_event_narrative}")
 
+    with st.form("situation_rating_form"):
         motive_scores = st.session_state.situation_motive_scores
         for m in MOTIVES_FULL:
             col1, col2 = st.columns(2) 
-            
             with col1:
                 motive_scores[m['motive']]['Promotion'] = st.radio(
                     f"{m['Promotion']}", 
@@ -752,7 +750,6 @@ def show_situation_rating_page():
                     horizontal=True, 
                     key=f"sit_{m['motive']}_Promotion"
                 )
-            
             with col2:
                 motive_scores[m['motive']]['Prevention'] = st.radio(
                     f"{m['Prevention']}", 
@@ -761,7 +758,6 @@ def show_situation_rating_page():
                     horizontal=True, 
                     key=f"sit_{m['motive']}_Prevention"
                 )
-            # Added HR to separate rows
             st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
