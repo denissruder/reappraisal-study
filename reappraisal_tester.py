@@ -18,6 +18,11 @@ st.set_page_config(page_title="Version A: RFT Prediction Study")
 # Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
 <style>
+/* Ensure the page content starts at the very top of the viewport */
+.main .block-container {
+    padding-top: 1rem !important;
+}
+
 /* 1. Global Container/Form Spacing Reduction */
 .stForm {
     max-width: 900px;
@@ -95,6 +100,8 @@ div[data-testid="stVerticalBlock"] {
 /* Fix the height of the info box area to prevent layout shifts */
 div[data-testid="stNotification"] {
     min-height: 80px; 
+    border-radius: 5px !important;
+    border: 1px solid #ddd !important;
 }
 </style>
 """, unsafe_allow_html=True)
