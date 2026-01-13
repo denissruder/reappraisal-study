@@ -738,6 +738,8 @@ def show_situation_rating_page():
     st.header("🧐 Situation Appraisal")
     st.info(f"**Your Narrative:**\n\n{st.session_state.final_event_narrative}")
 
+    st.write(f"Rate how relevant these motives were to the event you described. (1 = Not Relevant, {RATING_SCALE_MAX} = Highly Relevant).")
+    
     with st.form("situation_rating_form"):
         motive_scores = st.session_state.situation_motive_scores
         for m in MOTIVES_FULL:
