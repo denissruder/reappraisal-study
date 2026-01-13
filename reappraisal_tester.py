@@ -601,7 +601,8 @@ def show_motives_only_page():
         st.markdown("### General Motive Importance & Focuses")
         st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
         st.markdown("<br>", unsafe_allow_html=True)
-
+        st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+        
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
             col1, col2 = st.columns(2) 
