@@ -740,18 +740,11 @@ def show_situation_rating_page():
 
     with st.form("situation_rating_form"):
         st.markdown("### Situation Appraisal: Your Perspectives")
-        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
-        st.markdown(f"""
-        Please rate how **relevant** each of the following motives and their focuses was to the **event you just described** on a scale of 1 to {RATING_SCALE_MAX} 
-        """)
         st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
+        st.markdown("<br>", unsafe_allow_html=True)
 
         motive_scores = st.session_state.situation_motive_scores
         for m in MOTIVES_FULL:
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-            # REMOVED: {m['Definition']}
-            st.markdown(f"#### {m['motive']}")
-            
             col1, col2 = st.columns(2) 
             
             with col1:
@@ -760,7 +753,7 @@ def show_situation_rating_page():
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Promotion'] - 1, 
                     horizontal=True, 
-                    key=f"sit_{m['motive']}_Promotion" # Changed key to be unique from 'gen_'
+                    key=f"sit_{m['motive']}_Promotion"
                 )
             
             with col2:
@@ -771,11 +764,13 @@ def show_situation_rating_page():
                     horizontal=True, 
                     key=f"sit_{m['motive']}_Prevention"
                 )
+            # Added HR to separate rows
+            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
             st.session_state.page = 'cross_rating'
             st.rerun()
-
+            
 def show_cross_rating_page():
     # --- 1. Story Persistence ---
     if 'cross_participant_situation' not in st.session_state:
@@ -885,8 +880,6 @@ def show_cross_rating_page():
 
     with st.form("cross_rating_form"):
         for m in MOTIVES_FULL:
-            # Cleaned up the label for consistency
-            st.markdown(f"#### {m['motive']}")
             col1, col2 = st.columns(2)
             with col1:
                 st.session_state.cross_motive_scores[m['motive']]['Promotion'] = st.radio(
@@ -900,7 +893,8 @@ def show_cross_rating_page():
                     index=st.session_state.cross_motive_scores[m['motive']]['Prevention'] - 1,
                     key=f"c_{m['motive']}_pre"
                 )
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            # Added HR to separate rows
+            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
             st.session_state.cross_submitted = True
