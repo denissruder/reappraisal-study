@@ -636,19 +636,22 @@ def show_motives_only_page():
             
 def show_chat_page():
     st.header("🗣️ Event Interview")
-    st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context. **You can stop the interview at any time by clicking the button below.**")
+    st.markdown("Please describe a recent emotionally unpleasant event. The chatbot will ask follow-up questions to gather necessary context. **You can stop the interview process if your event text is long enough, by clicking the button below.**")
 
     if 'interview_messages' not in st.session_state:
-        # Initialize with the first question directly
         initial_question = INTERVIEW_QUESTIONS[0]
         st.session_state.interview_messages = [AIMessage(content=initial_question)]
         st.session_state.interview_answers = []
-        st.session_state.next_question = initial_question # Use this to track the question just asked
+        st.session_state.next_question = initial_question 
         st.session_state.event_text_synthesized = None
 
     messages = st.session_state.interview_messages
     answers = st.session_state.interview_answers
     
+    # --- NEW: Calculate total character count of answers to enable/disable Skip button ---
+    total_chars = sum(len(a['answer']) for a in answers)
+    skip_disabled = total_chars < 1000 # Button is greyed out until 1000 chars reached
+
     chat_container = st.container(height=450, border=True)
 
     with chat_container:
@@ -657,54 +660,49 @@ def show_chat_page():
             with st.chat_message(role):
                 st.markdown(message.content)
 
+    # --- NEW: Auto-progress logic ---
     if st.session_state.event_text_synthesized:
-        st.success("✅ Interview complete. Proceed to the next step.")
-        if st.button("Next: Review and Confirm Narrative", type="primary", use_container_width=True):
-            st.session_state.page = 'review_narrative'
-            st.rerun()
-        return
+        st.session_state.page = 'review_narrative' # Auto-route
+        st.rerun()
         
-    # Manual skip button
-    if st.button("Skip to Narrative Synthesis", type="secondary", use_container_width=True):
-        if not answers:
-             st.error("Please provide at least one response before synthesizing the narrative.")
-             return
-             
-        # Force synthesis
+    # Manual skip button with dynamic disabled state
+    if st.button(
+        f"Skip to Narrative Synthesis ({total_chars}/1000 chars)", 
+        type="secondary", 
+        use_container_width=True,
+        disabled=skip_disabled # Greys out the button
+    ):
         with st.spinner("Compiling and verifying your story..."): 
             interview_result = process_interview_step(llm, answers, is_skip=True)
             if interview_result['status'] == 'complete':
                 st.session_state.event_text_synthesized = interview_result['final_narrative']
-                messages.append(AIMessage(content=interview_result['conversational_response']))
+                # On skip, we now trigger an immediate rerun to auto-progress
+                st.session_state.page = 'review_narrative' # Auto-route
+                st.rerun()
             elif interview_result['status'] == 'error':
-                 # Error message is already displayed in the function
                  messages.append(AIMessage(content=interview_result['conversational_response']))
-            st.rerun()
+                 st.rerun()
         return
 
     if user_input := st.chat_input("Your Response:"):
-        
-        # 1. Record User's Answer
+        # Record User's Answer
         messages.append(HumanMessage(content=user_input))
-        
-        # The question just answered is the one tracked by st.session_state.next_question
         question_just_answered = st.session_state.next_question
         answers.append({"question": question_just_answered, "answer": user_input})
         
-        # 2. Process with LLM for Next Step
+        # Process with LLM for Next Step
         with st.spinner("Processing your response..."): 
             interview_result = process_interview_step(llm, answers)
-            
             st.session_state.next_question = interview_result.get('next_question')
             
             if interview_result['status'] == 'continue':
-                # Continue the interview
                 messages.append(AIMessage(content=f"{interview_result['conversational_response']} {interview_result['next_question']}"))
             
             elif interview_result['status'] == 'complete':
-                # Interview is complete, save the narrative
                 st.session_state.event_text_synthesized = interview_result['final_narrative']
-                messages.append(AIMessage(content=interview_result['conversational_response']))
+                # Auto-progressing even on natural completion
+                st.session_state.page = 'review_narrative'
+                st.rerun()
             
             elif interview_result['status'] == 'error':
                  messages.append(AIMessage(content=interview_result['conversational_response']))
