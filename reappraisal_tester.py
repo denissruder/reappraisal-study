@@ -27,7 +27,6 @@ st.markdown("""
 /* Aggressively zero out vertical space for all internal blocks */
 div[data-testid="stVerticalBlock"],
 div[data-testid="stHorizontalBlock"] {
-    gap: 0.25rem !important; /* Minimal vertical space (4px) */
     margin: 0 !important;
     padding: 0 !important;
 }
@@ -621,7 +620,7 @@ def show_motives_only_page():
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Prevention"
                 )
-            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
