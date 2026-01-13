@@ -604,7 +604,6 @@ def show_motives_only_page():
 
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            # Removed Title, Definition, and HR to collapse the row
             col1, col2 = st.columns(2) 
             
             with col1:
@@ -624,6 +623,8 @@ def show_motives_only_page():
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Prevention"
                 )
+            # Added HR to separate rows
+            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' 
