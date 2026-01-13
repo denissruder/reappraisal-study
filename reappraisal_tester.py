@@ -83,11 +83,18 @@ div[role="radiogroup"] label {
     font-size: 0.9rem !important; /* NEW: Makes the radio button labels slightly smaller */
 }
 
-/* Remove fade-in animation for info boxes */
-div[data-testid="stNotification"] {
+/* Disable all transitions and animations for instant switching */
+div[data-testid="stNotification"], 
+div[data-testid="stForm"], 
+div[data-testid="stVerticalBlock"] {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
+}
+
+/* Fix the height of the info box area to prevent layout shifts */
+div[data-testid="stNotification"] {
+    min-height: 80px; 
 }
 </style>
 """, unsafe_allow_html=True)
