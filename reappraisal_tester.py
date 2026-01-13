@@ -598,41 +598,34 @@ def show_motives_only_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
-    # 1. Header and "Pop-up" Info box (Instruction context)
     st.header("📊 General Motive Profile")
     st.info(f"""
     Please rate the importance of the following {len(MOTIVES_FULL)} motives to you **in general**. 
-    For each motive, provide two scores: Promotion Focus and Prevention Focus.
-    
-    **Scale:** 1 (Not Important At All) to {RATING_SCALE_MAX} (Extremely Important)
+    **1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**
     """)
 
     with st.form("initial_assessment_form"):
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            # 2. Bold Title Only (No description)
-            st.markdown(f"**{m['motive']}**")
-            
             col1, col2 = st.columns(2) 
             with col1:
                 motive_scores[m['motive']]['Promotion'] = st.radio(
-                    f"Focus: {m['Promotion']}", 
+                    f"{m['Promotion']}", 
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Promotion'] - 1, 
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Promotion"
                 )
-            
             with col2:
                 motive_scores[m['motive']]['Prevention'] = st.radio(
-                    f"Focus: {m['Prevention']}", 
+                    f"{m['Prevention']}", 
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Prevention'] - 1, 
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Prevention"
                 )
-            # 3. Horizontal separator
-            st.markdown("---")
+            # Added HR to separate rows
+            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' 
