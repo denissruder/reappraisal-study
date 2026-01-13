@@ -757,8 +757,8 @@ def show_situation_rating_page():
                     horizontal=True, 
                     key=f"sit_{m['motive']}_Prevention"
                 )
-            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-
+            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
             st.session_state.page = 'cross_rating'
             st.rerun()
@@ -857,7 +857,7 @@ def show_cross_rating_page():
                     index=st.session_state.cross_motive_scores[m['motive']]['Prevention'] - 1,
                     key=f"c_{m['motive']}_pre"
                 )
-            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
             st.session_state.cross_submitted = True
