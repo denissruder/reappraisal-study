@@ -574,7 +574,7 @@ def show_regulatory_only_page():
         # enumerate provides the 0-based index (i), which we use for the key, 
         # and the item string, which is used for the dictionary key and display.
         for i, item in enumerate(REG_FOCUS_ITEMS):
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             # The display index is i+1, ensuring continuous numbering from 1 to 18.
             st.session_state.reg_focus_scores[item] = st.radio(
                 f"**{i+1}.** {item}", 
@@ -622,6 +622,7 @@ def show_motives_only_page():
                     key=f"gen_{m['motive']}_Prevention"
                 )
             st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' 
