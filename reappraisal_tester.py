@@ -772,10 +772,10 @@ def show_situation_rating_page():
             st.rerun()
             
 def show_cross_rating_page():
-    st.components.v1.html(
-        "<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>",
-        height=0
-    )
+    # st.components.v1.html(
+    #     "<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>",
+    #     height=0
+    # )
     
     # 1. Initialize data and Story Persistence
     if 'cross_participant_situation' not in st.session_state:
@@ -891,6 +891,13 @@ def show_thank_you_page():
 # --- 5. MAIN APP EXECUTION ---
 if 'page' not in st.session_state:
     st.session_state.page = 'consent' # Start at consent page
+    
+# This ensures every time the script reruns (page change), 
+# the browser jumps to the top instantly.
+st.components.v1.html(
+    "<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>",
+    height=0
+)
 
 # Page routing logic
 if st.session_state.page == 'consent':
