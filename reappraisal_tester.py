@@ -774,17 +774,11 @@ def show_cross_rating_page():
     if 'cross_submitted' not in st.session_state:
         st.session_state.cross_submitted = False
 
-    # 2. Page Header and "Pop-up" (st.info) 
-    # Placing these here ensures they stay visible even during processing
-    st.header("🎯 Perspective Taking")
-    st.info(st.session_state.cross_participant_situation)
-
-    # 3. BRANCH A: PROCESSING STATE (Expert Consensus Engine)
+    # 2. BRANCH A: PROCESSING STATE (Expert Consensus Engine)
     if st.session_state.cross_submitted:
-        # Auto-scroll to top (optional script you had)
-        st.markdown("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", unsafe_allow_html=True)
+        # Hide the narrative and show only the processing status
+        st.header("🧬 Expert Consensus Engine")
         
-        st.subheader("🧬 Expert Consensus Engine")
         progress_bar = st.progress(0)
         status_text = st.empty()
         
@@ -835,17 +829,15 @@ def show_cross_rating_page():
                 
                 if save_data(trial_data):
                     status.update(label="Analysis Complete! Redirecting...", state="complete")
-                    time.sleep(1) # Short pause so user sees completion
                     st.session_state.page = 'thank_you'
-                    st.rerun()
-            else:
-                st.error("Consensus could not be reached.")
-                if st.button("Retry"):
-                    st.session_state.cross_submitted = False
                     st.rerun()
         return
 
-    # 4. BRANCH B: INPUT STATE (The Form)
+    # 3. BRANCH B: INPUT STATE (The Form)
+    # The "pop-up" and header are inside this branch, so they disappear on submit
+    st.header("🎯 Perspective Taking")
+    st.info(st.session_state.cross_participant_situation)
+
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1))
     if 'cross_motive_scores' not in st.session_state:
         st.session_state.cross_motive_scores = {m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL}
