@@ -590,6 +590,7 @@ def show_regulatory_only_page():
             st.rerun()
 
 def show_motives_only_page():
+    # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
     if 'general_motive_scores' not in st.session_state:
@@ -597,19 +598,25 @@ def show_motives_only_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
+    # 1. Header and "Pop-up" Info box (Instruction context)
+    st.header("📊 General Motive Profile")
+    st.info(f"""
+    Please rate the importance of the following {len(MOTIVES_FULL)} motives to you **in general**. 
+    For each motive, provide two scores: Promotion Focus and Prevention Focus.
+    
+    **Scale:** 1 (Not Important At All) to {RATING_SCALE_MAX} (Extremely Important)
+    """)
+
     with st.form("initial_assessment_form"):
-        st.markdown("### General Motive Importance & Focuses")
-        st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-        
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            col1, col2 = st.columns(2) 
+            # 2. Bold Title Only (No description)
+            st.markdown(f"**{m['motive']}**")
             
+            col1, col2 = st.columns(2) 
             with col1:
                 motive_scores[m['motive']]['Promotion'] = st.radio(
-                    f"{m['Promotion']}", 
+                    f"Focus: {m['Promotion']}", 
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Promotion'] - 1, 
                     horizontal=True, 
@@ -618,14 +625,14 @@ def show_motives_only_page():
             
             with col2:
                 motive_scores[m['motive']]['Prevention'] = st.radio(
-                    f"{m['Prevention']}", 
+                    f"Focus: {m['Prevention']}", 
                     options=RADIO_OPTIONS, 
                     index=motive_scores[m['motive']]['Prevention'] - 1, 
                     horizontal=True, 
                     key=f"gen_{m['motive']}_Prevention"
                 )
-            # Added HR to separate rows
-            st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            # 3. Horizontal separator
+            st.markdown("---")
 
         if st.form_submit_button("Next: Start Interview", type="primary"):
             st.session_state.page = 'chat' 
