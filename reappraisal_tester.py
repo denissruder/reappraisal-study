@@ -590,7 +590,6 @@ def show_regulatory_only_page():
             st.rerun()
 
 def show_motives_only_page():
-    # Define the 1-9 radio options
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1)) 
 
     if 'general_motive_scores' not in st.session_state:
@@ -600,19 +599,12 @@ def show_motives_only_page():
 
     with st.form("initial_assessment_form"):
         st.markdown("### General Motive Importance & Focuses")
-        st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #FFF;'>", unsafe_allow_html=True)
-        st.markdown(f"""
-        Please rate the importance of the following **{len(MOTIVES_FULL)} motives** to you **in general** on a scale of 1 to {RATING_SCALE_MAX}. 
-        You must provide **two scores** for each motive: Promotion Focus and Prevention Focus.
-        """)
         st.markdown(f"**1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
+        st.markdown("<br>", unsafe_allow_html=True)
 
         motive_scores = st.session_state.general_motive_scores
         for m in MOTIVES_FULL:
-            st.markdown("<hr style='margin: 5px 0 15px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-            # REMOVED: {m['Definition']}
-            st.markdown(f"#### {m['motive']}") 
-            
+            # Removed Title, Definition, and HR to collapse the row
             col1, col2 = st.columns(2) 
             
             with col1:
