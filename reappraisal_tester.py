@@ -764,7 +764,7 @@ def show_situation_rating_page():
             st.rerun()
             
 def show_cross_rating_page():
-    # --- 1. Story Persistence ---
+    # 1. Initialize data and Story Persistence
     if 'cross_participant_situation' not in st.session_state:
         try:
             st.session_state.cross_participant_situation = get_random_story_from_db()
@@ -774,98 +774,78 @@ def show_cross_rating_page():
     if 'cross_submitted' not in st.session_state:
         st.session_state.cross_submitted = False
 
-    # --- BRANCH A: PROCESSING STATE (Stage Counter 1/5, 2/5...) ---
+    # 2. Page Header and "Pop-up" (st.info) 
+    # Placing these here ensures they stay visible even during processing
+    st.header("🎯 Perspective Taking")
+    st.info(st.session_state.cross_participant_situation)
+
+    # 3. BRANCH A: PROCESSING STATE (Expert Consensus Engine)
     if st.session_state.cross_submitted:
-        # JS Auto-scroll to top
+        # Auto-scroll to top (optional script you had)
         st.markdown("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>", unsafe_allow_html=True)
         
-        st.header("🧬 Expert Consensus Engine")
-        
-        # UI Feedback elements
+        st.subheader("🧬 Expert Consensus Engine")
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         with st.status("Analyzing narrative...", expanded=True) as status:
-            # FIX: Define the chain here to ensure it's in scope
             prompt = PromptTemplate(
                 input_variables=["event_text", "example1"], 
                 template=MOTIVES_PREDICTION_TEMPLATE
             )
-            # Ensure 'llm' is defined globally (e.g., llm = ChatGoogleGenerativeAI(...))
             chain = prompt | llm 
             
-            N_COTS = 5
             all_valid_runs = []
-            
             for i in range(N_COTS):
                 step = i + 1
                 status_text.markdown(f"**Stage {step}/{N_COTS}:** Consulting Reasoning Path {step}...")
                 progress_bar.progress(step / N_COTS)
                 
                 try:
-                    # Invoke the chain
                     response = chain.invoke({
                         "event_text": st.session_state.final_event_narrative,
-                        "example1": example1 # Ensure 'example1' is a global string
+                        "example1": example1
                     })
-                    
-                    # Parse using your Tuple Regex Parser
                     scores, reasonings = parse_llm_json(response.content, step)
-
                     if scores:
                         all_valid_runs.append({"scores": scores, "reasoning": reasonings})
                         st.write(f"✅ Path {step}/{N_COTS} completed.")
                     else:
                         st.write(f"⚠️ Path {step}/{N_COTS} failed parsing.")
-                
                 except Exception as e:
                     st.write(f"❌ Path {step}/{N_COTS} error: {e}")
-                
-                time.sleep(0.2)
+                time.sleep(0.1)
 
             if all_valid_runs:
                 status_text.markdown("**Finalizing:** Computing Majority Vote winner...")
-                
-                # Calculate Majority Vote Consensus
-                consensus_scores = {}
-                for key in MOTIVE_SCORE_KEYS:
-                    votes = [run["scores"][key] for run in all_valid_runs if key in run["scores"]]
-                    consensus_scores[key] = get_majority_vote(votes)
+                consensus_scores = {key: get_majority_vote([run["scores"][key] for run in all_valid_runs if key in run["scores"]]) for key in MOTIVE_SCORE_KEYS}
 
-                # Assemble Final Flattened Data
                 trial_data = {
                     "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "participant_id": str(uuid.uuid4()),
-                    
-                    # Flattened maps (Motive_Focus: Score)
                     "baseline_motive_profile": flatten_motive_dict(st.session_state.general_motive_scores),
                     "baseline_regulatory_focus": flatten_motive_dict(st.session_state.reg_focus_scores),
                     "own_situation_rating": flatten_motive_dict(st.session_state.situation_motive_scores),
                     "cross_perspective_rating": flatten_motive_dict(st.session_state.cross_motive_scores),
-                    
-                    # LLM Data
                     "llm_consensus_prediction": consensus_scores,
-                    "llm_all_reasoning_paths": all_valid_runs, # All 5 paths (scores + reasoning maps)
-                    
+                    "llm_all_reasoning_paths": all_valid_runs,
                     "confirmed_event_narrative": st.session_state.final_event_narrative,
                     "cross_situation_text": st.session_state.cross_participant_situation
                 }
                 
                 if save_data(trial_data):
                     status.update(label="Analysis Complete! Redirecting...", state="complete")
+                    time.sleep(1) # Short pause so user sees completion
                     st.session_state.page = 'thank_you'
                     st.rerun()
             else:
-                st.error("Consensus could not be reached. All paths failed.")
+                st.error("Consensus could not be reached.")
                 if st.button("Retry"):
                     st.session_state.cross_submitted = False
                     st.rerun()
         return
 
-    # --- BRANCH B: INPUT STATE (The Form) ---
-    st.header("🎯 Perspective Taking")
-    st.info(st.session_state.cross_participant_situation)
-
+    # 4. BRANCH B: INPUT STATE (The Form)
     RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1))
     if 'cross_motive_scores' not in st.session_state:
         st.session_state.cross_motive_scores = {m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL}
@@ -885,7 +865,6 @@ def show_cross_rating_page():
                     index=st.session_state.cross_motive_scores[m['motive']]['Prevention'] - 1,
                     key=f"c_{m['motive']}_pre"
                 )
-            # Added HR to separate rows
             st.markdown("<hr style='margin: 5px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
         if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
