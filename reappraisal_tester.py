@@ -734,10 +734,9 @@ def show_situation_rating_page():
             m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL
         }
 
-    # Header and Pop-up (showing narrative) outside the form
     st.header("🧐 Situation Appraisal")
-    st.info(f"**Your Narrative:**\n\n{st.session_state.final_event_narrative}")
-    
+    st.info(f"Please rate the importance of the following {len(MOTIVES_FULL)} motives to you based on the event you described **1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
+
     with st.form("situation_rating_form"):
         motive_scores = st.session_state.situation_motive_scores
         for m in MOTIVES_FULL:
