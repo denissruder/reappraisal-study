@@ -18,10 +18,6 @@ st.set_page_config(page_title="Version A: RFT Prediction Study")
 # Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
 <style>
-/* Ensure the page content starts at the very top of the viewport */
-.main .block-container {
-    padding-top: 1rem !important;
-}
 
 /* 1. Global Container/Form Spacing Reduction */
 .stForm {
@@ -95,13 +91,6 @@ div[data-testid="stVerticalBlock"] {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
-}
-
-/* Fix the height of the info box area to prevent layout shifts */
-div[data-testid="stNotification"] {
-    min-height: 80px; 
-    border-radius: 5px !important;
-    border: 1px solid #ddd !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -783,12 +772,6 @@ def show_situation_rating_page():
             st.rerun()
             
 def show_cross_rating_page():
-    # This script runs every time the page function is called
-    st.components.v1.html(
-        """<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>""",
-        height=0
-    )
-    
     # 1. Initialize data and Story Persistence
     if 'cross_participant_situation' not in st.session_state:
         try:
