@@ -82,6 +82,13 @@ div[role="radiogroup"] label {
     /* ... existing styles ... */
     font-size: 0.9rem !important; /* NEW: Makes the radio button labels slightly smaller */
 }
+
+/* Remove fade-in animation for info boxes */
+div[data-testid="stNotification"] {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
