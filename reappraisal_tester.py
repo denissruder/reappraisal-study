@@ -783,6 +783,12 @@ def show_situation_rating_page():
             st.rerun()
             
 def show_cross_rating_page():
+    # This script runs every time the page function is called
+    st.components.v1.html(
+        """<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>""",
+        height=0
+    )
+    
     # 1. Initialize data and Story Persistence
     if 'cross_participant_situation' not in st.session_state:
         try:
