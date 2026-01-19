@@ -164,7 +164,7 @@ JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
 
 # --- FOR STREAMLIT PAGE LOGIC ---
 MOTIVES_FULL = [
-    {'motive': m[0], 'Promotion': m[1], 'Prevention': m[2], 'Definition': m[3]}
+    {'motive': m[0], 'Promotion': m[1], 'Prevention': m[2]}
     for m in MOTIVES_GOALS
 ]
 
