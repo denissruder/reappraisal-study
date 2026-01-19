@@ -102,23 +102,22 @@ TEMP = 0.8 # Increased temperature for more diverse CoTs
 RATING_SCALE_MIN = 1
 RATING_SCALE_MAX = 9 
 MIN_NARRATIVE_LENGTH = 100
-N_COTS = 5 # *** Number of Chain-of-Thought runs for Self-Consistency ***
 
 # CORE DATA: Single source of truth for all motives and their goals
 MOTIVES_GOALS = [
-    ("Hedonic", "To feel good", "Not to feel bad", "The need to experience pleasure and comfort, or to avoid pain and discomfort."),
-    ("Physical", "To be in good health", "To stay safe", "The need to maintain one's body (health, fitness) and ensure its continued well-being."),
-    ("Wealth", "To have money", "To avoid poverty", "The need for financial resources and economic security."),
-    ("Predictability", "To understand", "To avoid confusion", "The need to understand the environment, have order, and avoid uncertainty or confusion."),
-    ("Competence", "To succeed", "To avoid failure", "The need to feel capable, effective, and successful at tasks and challenges."),
-    ("Growth", "To learn and grow", "To avoid monotony or decline", "The need for continuous learning, development, and personal expansion."),
-    ("Autonomy", "To be free to decide", "Not to be told what to do", "The need for self-determination, control over one's life, and the ability to make independent choices."),
-    ("Relatedness", "To feel connected", "To avoid loneliness", "The need to form and maintain close, positive, and meaningful bonds with others."),
-    ("Acceptance", "To be liked", "To avoid disapproval", "The need to be approved of, respected, and feel included by social groups."),
-    ("Status", "To stand out", "To avoid being ignored", "The need for recognition, social rank, influence, or prominence within a group."),
-    ("Responsibility", "To live up to expectations", "Not to let others down", "The need to fulfill one's duties, meet obligations, and act reliably towards others."),
-    ("Meaning", "To make a difference", "Not to waste my life", "The need to feel that one's life is significant, purposeful, and contributes to something larger."),
-    ("Instrumental", "To gain something", "To avoid something", "The need to view actions and resources as means to an end, focused on practical outcomes."),
+    ("Hedonic", "To feel good", "Not to feel bad"),
+    ("Physical", "To be in good health", "To stay safe"),
+    ("Wealth", "To have money", "To avoid poverty"),
+    ("Predictability", "To understand", "To avoid confusion"),
+    ("Competence", "To succeed", "To avoid failure"),
+    ("Growth", "To learn and grow", "To avoid monotony or decline"),
+    ("Autonomy", "To be free to decide", "Not to be told what to do"),
+    ("Relatedness", "To feel connected", "To avoid loneliness"),
+    ("Acceptance", "To be liked", "To avoid disapproval"),
+    ("Status", "To stand out", "To avoid being ignored"),
+    ("Responsibility", "To live up to expectations", "Not to let others down"),
+    ("Meaning", "To make a difference", "Not to waste my life"),
+    ("Instrumental", "To gain something", "To avoid something"),
 ]
 
 # Regulatory Focus Questionnaire items (18 items)
@@ -163,60 +162,12 @@ for motive_name, _, _, _ in MOTIVES_GOALS:
 
 JSON_KEYS_LIST = ", ".join(MOTIVE_SCORE_KEYS)
 
-
-
 # --- FOR STREAMLIT PAGE LOGIC ---
 MOTIVES_FULL = [
     {'motive': m[0], 'Promotion': m[1], 'Prevention': m[2], 'Definition': m[3]}
     for m in MOTIVES_GOALS
 ]
 
-# --- Few-Shot Examples ---
-
-# FEW-SHOT EXAMPLE for Motive Prediction
-example1 = """
-Event: I am falsely accused of a serious, high-profile intellectual property theft by a former business partner. The initial police report and subsequent media coverage have already ruined my professional reputation, causing clients to drop me instantly and my business to implode overnight. I’ve had to mortgage my home to cover the massive legal defense costs, retaining a top-tier lawyer just to have a chance against the well-funded opponent. The case is moving slowly, and the discovery phase requires me to spend countless hours reviewing old documents and communications, reliving the breakdown of the partnership. I know I am innocent, but the burden of proof, the aggressive legal tactics of the other side, and the sheer length of the process are mentally debilitating. I receive constant, hostile messages online from strangers who have read the biased media reports. My savings are gone, my career is a wreck, and the stress has led to profound marital strain. The anticipation of the trial and the potential for a devastating verdict, despite the truth being on my side, makes every morning a struggle to simply get out of bed.
-
-Hedonic_Promotion : (1, The individual is currently in a state of crisis management; seeking pleasure or 'feeling good' is not a priority compared to survival),
-Hedonic_Prevention : (9, The primary emotional state is avoiding profound mental distress, debilitating stress, and the misery of the current situation.),
-
-Physical_Promotion : (2, There is little focus on physical optimization or health improvement.),
-Physical_Prevention : (7, The stress is described as 'mentally debilitating,' suggesting a high priority on preventing a complete physical or nervous breakdown.),
-
-Wealth_Promotion : (2, The person is not trying to get rich; they are in a defensive financial posture.),
-Wealth_Prevention : (9, The loss of savings, the mortgaged home, and the 'business imploding' make avoiding total poverty a top-tier motive.),
-
-Predictability_Promotion : (3, There is less focus on gaining new understanding and more on the uncertainty of the legal outcome.),
-Predictability_Prevention : (8, The 'anticipation of the trial' and the slow process create a desperate need to avoid the confusion and chaos of the legal system.),
-
-Competence_Promotion : (6, The desire to eventually succeed and be exonerated is present but overshadowed by defensive needs.),
-Competence_Prevention : (9, Avoiding 'failure' in the form of a 'devastating verdict' is a matter of professional and personal survival.),
-
-Growth_Promotion : (1, The situation is about survival, not personal growth or learning; the person is reliving a breakdown, not moving forward.),
-Growth_Prevention : (9, The primary focus is stopping the 'wreck' of a career and avoiding the further decline of their life's work.),
-
-Autonomy_Promotion : (4, The person desires their life back, but they are currently trapped by the legal process.),
-Autonomy_Prevention : (9, They are being forced to spend 'countless hours' on discovery and are reacting to 'aggressive legal tactics,' creating a strong desire not to be controlled by the opponent.),
-
-Relatedness_Promotion : (3, While they likely want connection, the 'marital strain' suggests they are currently unable to focus on building intimacy.),
-Relatedness_Prevention : (9, A very high focus on avoiding the 'loneliness' caused by the withdrawal of clients and the strain on the marriage.),
-
-Acceptance_Promotion : (4, Gaining new friends is irrelevant; they want their old life back.),
-Acceptance_Prevention : (9, The 'ruined professional reputation' and 'hostile messages from strangers' make avoiding social disapproval and being an outcast a dominant motive.),
-
-Status_Promotion : (3, The person is not trying to 'stand out' anymore; they are trying to recover what was lost.),
-Status_Prevention : (9, Avoiding the shame of being labeled a 'thief' and the public stigma of the 'biased media reports' is critical.),
-
-Responsibility_Promotion : (5, The person wants to live up to the image of an innocent partner/spouse.),
-Responsibility_Prevention : (9, A major driver is not 'letting down' their family, especially given the financial risks like the mortgaged home.),
-
-Meaning_Promotion : (7, The person is motivated by the 'truth being on my side,' suggesting a desire to ensure that truth and justice prevail.),
-Meaning_Prevention : (8, The struggle to 'get out of bed' suggests a fear that their life and hard work are being 'wasted' by a lie.),
-
-Instrumental_Promotion : (8, The person is working toward a specific goal: a top-tier lawyer and a trial victory.),
-Instrumental_Prevention : (9, The entire current existence is defined by the need to avoid a 'devastating verdict' and the total loss of their assets.)
-
-"""
 # --- UTIL FUNCTIONS --- 
 
 def parse_llm_json(response_content, attempt_number=0):
@@ -252,17 +203,6 @@ def parse_llm_json(response_content, attempt_number=0):
         
     reasoning_text = "\n".join(reasoning_blocks)
     return prediction_scores, reasoning_text
-
-def get_majority_vote(scores_list):
-    """Returns the most frequent score. In case of a tie, returns the highest."""
-    if not scores_list:
-        return 1
-    counts = Counter(scores_list)
-    max_freq = max(counts.values())
-    # Find all scores that appeared with the maximum frequency
-    modes = [score for score, count in counts.items() if count == max_freq]
-    # Return the highest score among the modes (conservative tie-breaking)
-    return max(modes)
 
 def flatten_motive_dict(nested_dict):
     """Converts {'Motive': {'Promotion': X, 'Prevention': Y}} to flat keys."""
@@ -312,118 +252,7 @@ def get_firestore_client():
         st.stop()
         
 db = get_firestore_client()
-COLLECTION_NAME = "version_a_appraisal_trials_v4"
-
-# --- NEW: Function to fetch a random story from the DB ---
-@st.cache_data(ttl=600) # Cache for 10 minutes to avoid hitting DB too often
-def get_random_story_from_db():
-    """Fetches a random 'confirmed_event_narrative' from the Firestore collection."""
-    try:
-        # Fetch up to 100 documents (adjust limit if needed for a very large collection)
-        # We only need the 'confirmed_event_narrative' field.
-        docs = db.collection(COLLECTION_NAME).select(['confirmed_event_narrative']).limit(100).get()
-        
-        stories = [
-            doc.get('confirmed_event_narrative')
-            for doc in docs
-            if doc.get('confirmed_event_narrative') and len(doc.get('confirmed_event_narrative')) >= MIN_NARRATIVE_LENGTH
-        ]
-        
-        if stories:
-            return random.choice(stories)
-        else:
-            placeholder = "I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team."
-            return placeholder
-            
-    except Exception as e:
-        st.warning(f"Failed to fetch random story from database: {e}. Using a fallback placeholder.")
-        return "Database fetch failed. Placeholder: I was supposed to give a major presentation to my client, and just minutes before, my laptop crashed, losing several hours of preparation. I had to improvise everything on a backup system. I felt incompetent, and worried I would lose the client's business, which would reflect poorly on my whole team."
-
-# --- 2. LLM LOGIC FUNCTIONS (Self-Consistency/Multiple CoTs) ---
-
-# --- LLM APPRAISAL PREDICTION TEMPLATE ---
-
-MOTIVES_PREDICTION_TEMPLATE = f"""
-
-You are an expert in human psychology. 
-
---- Chain-of-Thought ---
-
-1. You will read a related theory, list of motives with their promotion and prevention focus pairs, and a scale to be assigned for each motive.
-
-2. You will read a first-hand description of an event that elicited an emotional reaction.
-
-3. You will read a few output examples that you need to follow.
-
-4. Your will guess how important motives were to a person may have considered in a given event.  
-
-
--- PHASE 1: Chain-of-Thought & Chain-of-Verification Reasoning --- 
-
-A motive is an outcome that the person desires to approach or to avoid.  
-
-People usually have many motives, they desire to approach or avoid many things in life. However, within a given situation, usually only a subset of all possible motives are important to the person.  
-
-The person may or may not be consciously aware of this desire. Conscious awareness is not required for a motive to exert force on behavior, that is to explain why someone behaved the way they did. This means that some of the momentarily important motives can be verbally expressed in the texts you read. However, other may remain somewhat hidden and you can try to infer their importance from the context and the indirect clues the text provides.  
-
-There are 13 core motives organized in closely related promotion and prevention pairs.  
-
-List of core motives: Hedonic, Physical, Wealth, Predictability, Competence, Growth, Autonomy, Relatedness, Acceptance, Status, Responsibility, Meaning, Instrumental
-
-List of promotion motives: 
-    Hedonic_Promotion : To feel good, 
-    Physical_Promotion : To be in good health,
-    Wealth_Promotion : To have money,
-    Predictability_Promotion : To understand,
-    Competence_Promotion : To succeed,
-    Growth_Promotion : To learn and grow,
-    Autonomy_Promotion : To be free to decide,
-    Relatedness_Promotion : To feel connected,
-    Acceptance_Promotion : To be liked,
-    Status_Promotion : To stand out,
-    Responsibility_Promotion : To live up to expectations,
-    Meaning_Promotion : To make a difference,
-    Instrumental_Promotion : To gain something
-
-List of prevention motives: 
-    Hedonic_Prevention: To avoid feeling bad,
-    Physical_Prevention: To avoid injury or illness,
-    Wealth_Prevention: To avoid losing money,
-    Predictability_Prevention: To avoid confusion or chaos,
-    Competence_Prevention: To avoid failure,
-    Growth_Prevention: To avoid stagnation or regressing,
-    Autonomy_Prevention: To avoid being controlled by others,
-    Relatedness_Prevention: To avoid feeling lonely or isolated,
-    Acceptance_Prevention: To avoid being rejected or disliked,
-    Status_Prevention: To avoid losing face or reputation,
-    Responsibility_Prevention: To avoid letting others down,
-    Meaning_Prevention: To avoid leading a pointless life
-
-Motives are rated on a scale from {RATING_SCALE_MIN} (Not at all important) to **{RATING_SCALE_MAX} (Very important) to determine their dominant focus.
-
--- PHASE 2: Chain-of-Thought & Chain-of-Verification Reasoning --- 
-
-Event: {{event_text}} 
-
---- PHASE 3: Chain-of-Thought & Chain-of-Verification Reasoning --- 
-
-Example 1: {{example1}}
-
---- PHASE 4: Chain-of-Thought & Chain-of-Verification Reasoning --- 
-
-Given a theory and motive list from PHASE 1, event description from PHASE 2, and output examples from PHASE 3, your main task is to guess how important each motive was to a person in this event.   
-
---- Chain-of-Verification ---
-
-1. Make sure that you clearly understand the theory, motive dimensions, and that all ratings are on a scale from {RATING_SCALE_MAX} (Not Relevant At All) to {RATING_SCALE_MAX} (Highly Relevant) scale.
-
-2. Make sure that the event text is meaningful and wasn't copied from the internet. 
-
-3. Make sure you follow the exact tuple format from the examples: Motive_Type : (Score, Concise justification).
-
-4. Make sure that your reasoning for each motive dimension is objective and ethnically correct.
-
-"""
+COLLECTION_NAME = "reappraisal_study_db"
         
 # --- LLM INTERVIEW SYNTHESIS (DYNAMIC LOGIC IMPLEMENTATION) ---
 
@@ -529,7 +358,7 @@ def process_interview_step(llm_instance, interview_history, is_skip=False):
         return {"status": "error", "conversational_response": "I ran into an issue while processing that. Can you please tell me more about what happened?", "next_question": INTERVIEW_QUESTIONS[0], "final_narrative": None}
 
 
-# --- 3. DATA SAVING LOGIC (No change) ---
+# --- 3. DATA SAVING LOGIC ---
 
 def save_data(data):
     """Saves the trial data to Firestore."""
@@ -662,10 +491,9 @@ def show_chat_page():
             role = "user" if isinstance(message, HumanMessage) else "assistant"
             with st.chat_message(role):
                 st.markdown(message.content)
-
-    # --- NEW: Auto-progress logic ---
+                
     if st.session_state.event_text_synthesized:
-        st.session_state.page = 'review_narrative' # Auto-route
+        st.session_state.page = 'review_narrative'
         st.rerun()
         
     # Manual skip button with dynamic disabled state
@@ -768,112 +596,7 @@ def show_situation_rating_page():
             st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
         if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
-            st.session_state.page = 'cross_rating'
-            st.rerun()
-            
-def show_cross_rating_page():
-    st.components.v1.html(
-        "<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>",
-        height=0
-    )
-    
-    # 1. Initialize data and Story Persistence
-    if 'cross_participant_situation' not in st.session_state:
-        try:
-            st.session_state.cross_participant_situation = get_random_story_from_db()
-        except:
-            st.session_state.cross_participant_situation = "Sample story context..."
-    
-    if 'cross_submitted' not in st.session_state:
-        st.session_state.cross_submitted = False
-
-    # 2. BRANCH A: PROCESSING STATE (Expert Consensus Engine)
-    if st.session_state.cross_submitted:
-        # Hide the narrative and show only the processing status
-        st.header("🧬 Expert Consensus Engine")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        with st.status("Analyzing narrative...", expanded=True) as status:
-            prompt = PromptTemplate(
-                input_variables=["event_text", "example1"], 
-                template=MOTIVES_PREDICTION_TEMPLATE
-            )
-            chain = prompt | llm 
-            
-            all_valid_runs = []
-            for i in range(N_COTS):
-                step = i + 1
-                status_text.markdown(f"**Stage {step}/{N_COTS}:** Consulting Reasoning Path {step}...")
-                progress_bar.progress(step / N_COTS)
-                
-                try:
-                    response = chain.invoke({
-                        "event_text": st.session_state.final_event_narrative,
-                        "example1": example1
-                    })
-                    scores, reasonings = parse_llm_json(response.content, step)
-                    if scores:
-                        all_valid_runs.append({"scores": scores, "reasoning": reasonings})
-                        st.write(f"✅ Path {step}/{N_COTS} completed.")
-                    else:
-                        st.write(f"⚠️ Path {step}/{N_COTS} failed parsing.")
-                except Exception as e:
-                    st.write(f"❌ Path {step}/{N_COTS} error: {e}")
-                time.sleep(0.1)
-
-            if all_valid_runs:
-                status_text.markdown("**Finalizing:** Computing Majority Vote winner...")
-                consensus_scores = {key: get_majority_vote([run["scores"][key] for run in all_valid_runs if key in run["scores"]]) for key in MOTIVE_SCORE_KEYS}
-
-                trial_data = {
-                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                    "participant_id": str(uuid.uuid4()),
-                    "baseline_motive_profile": flatten_motive_dict(st.session_state.general_motive_scores),
-                    "baseline_regulatory_focus": flatten_motive_dict(st.session_state.reg_focus_scores),
-                    "own_situation_rating": flatten_motive_dict(st.session_state.situation_motive_scores),
-                    "cross_perspective_rating": flatten_motive_dict(st.session_state.cross_motive_scores),
-                    "llm_consensus_prediction": consensus_scores,
-                    "llm_all_reasoning_paths": all_valid_runs,
-                    "confirmed_event_narrative": st.session_state.final_event_narrative,
-                    "cross_situation_text": st.session_state.cross_participant_situation
-                }
-                
-                if save_data(trial_data):
-                    status.update(label="Analysis Complete! Redirecting...", state="complete")
-                    st.session_state.page = 'thank_you'
-                    st.rerun()
-        return
-
-    # 3. BRANCH B: INPUT STATE (The Form)
-    # The "pop-up" and header are inside this branch, so they disappear on submit
-    st.header("🎯 Perspective Taking")
-    st.info(st.session_state.cross_participant_situation)
-
-    RADIO_OPTIONS = list(range(1, RATING_SCALE_MAX + 1))
-    if 'cross_motive_scores' not in st.session_state:
-        st.session_state.cross_motive_scores = {m['motive']: {'Promotion': 5, 'Prevention': 5} for m in MOTIVES_FULL}
-
-    with st.form("cross_rating_form"):
-        for m in MOTIVES_FULL:
-            col1, col2 = st.columns(2)
-            with col1:
-                st.session_state.cross_motive_scores[m['motive']]['Promotion'] = st.radio(
-                    f"{m['Promotion']}", options=RADIO_OPTIONS, horizontal=True,
-                    index=st.session_state.cross_motive_scores[m['motive']]['Promotion'] - 1,
-                    key=f"c_{m['motive']}_pro"
-                )
-            with col2:
-                st.session_state.cross_motive_scores[m['motive']]['Prevention'] = st.radio(
-                    f"{m['Prevention']}", options=RADIO_OPTIONS, horizontal=True,
-                    index=st.session_state.cross_motive_scores[m['motive']]['Prevention'] - 1,
-                    key=f"c_{m['motive']}_pre"
-                )
-            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-
-        if st.form_submit_button("Submit All Data and Finish Trial", type="primary"):
-            st.session_state.cross_submitted = True
+            st.session_state.page = 'thank_you'
             st.rerun()
             
 def show_thank_you_page():
@@ -905,7 +628,5 @@ elif st.session_state.page == 'review_narrative':
     show_narrative_review_page()
 elif st.session_state.page == 'situation_rating':
     show_situation_rating_page()
-elif st.session_state.page == 'cross_rating':
-    show_cross_rating_page()
 elif st.session_state.page == 'thank_you': 
     show_thank_you_page()
