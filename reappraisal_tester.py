@@ -643,8 +643,6 @@ elif st.session_state.page == 'motives':
     show_motives_only_page() 
 elif st.session_state.page == 'chat': 
     show_chat_page()
-elif st.session_state.page == 'review_narrative':
-    show_narrative_review_page()
 elif st.session_state.page == 'situation_rating':
     show_situation_rating_page()
 elif st.session_state.page == 'thank_you': 
