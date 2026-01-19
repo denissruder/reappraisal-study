@@ -156,7 +156,7 @@ INTERVIEW_QUESTIONS = [
 
 # Create the master list of 26 required JSON keys
 MOTIVE_SCORE_KEYS = []
-for motive_name, _, _, _ in MOTIVES_GOALS:
+for motive_name, _, _ in MOTIVES_GOALS:
     MOTIVE_SCORE_KEYS.append(f"{motive_name}_Promotion")
     MOTIVE_SCORE_KEYS.append(f"{motive_name}_Prevention")
 
