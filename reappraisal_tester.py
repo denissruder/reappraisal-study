@@ -595,9 +595,28 @@ def show_situation_rating_page():
                 )
             st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
-        if st.form_submit_button("Next: Cross-Participant Rating", type="primary"):
-            st.session_state.page = 'thank_you'
-            st.rerun()
+        if st.form_submit_button("Submit and Finish", type="primary"):
+            
+            # Build a single trial record and save it.
+            trial_data = {
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "participant_id": str(uuid.uuid4()),
+                "baseline_regulatory_focus": flatten_motive_dict(st.session_state.reg_focus_scores),
+                "baseline_motive_profile": flatten_motive_dict(st.session_state.general_motive_scores),
+                "interview_history": st.session_state.get('interview_answers', []),
+                "confirmed_event_narrative": st.session_state.get('final_event_narrative'),
+                "event_situation_rating": flatten_motive_dict(st.session_state.situation_motive_scores),
+            }
+
+            # Minimal safety check
+            if not trial_data["confirmed_event_narrative"]:
+                st.error("Missing event narrative. Please go back and confirm your narrative.")
+                return
+
+            with st.spinner("Saving your responses..."):
+                if save_data(trial_data):
+                    st.session_state.page = 'thank_you'
+                    st.rerun()
             
 def show_thank_you_page():
     st.title("✅ Trial Complete")
