@@ -27,7 +27,6 @@ st.markdown("""
 div[data-testid="stVerticalBlock"], div[data-testid="stHorizontalBlock"] { margin: 0 !important; padding: 0 !important; }
 h1, h2, h3, h4 { margin-top: 0.5rem !important; margin-bottom: 0.2rem !important; padding-top: 0.25rem !important; }
 .stForm h4 { margin-top: 10px !important; margin-bottom: 5px !important; border-bottom: 1px solid #ddd; }
-/* Original vertical border for columns */
 div[data-testid="stHorizontalBlock"] > div:nth-child(2) { border-left: 1px solid #ccc; padding-left: 15px; }
 div[role="radiogroup"] { gap: 0px !important; }
 div[role="radiogroup"] label { font-size: 0.9rem !important; margin-right: 5px !important; }
@@ -95,14 +94,16 @@ def show_chat():
         st.session_state[f"msgs_{idx}"].append(HumanMessage(content=user_input))
         st.session_state[f"hist_{idx}"].append({"question": st.session_state[f"curr_q_{idx}"], "answer": user_input})
         
-        res = process_interview_step(st.session_state[f"hist_{idx}"], val)
-        if res['status'] == 'complete':
-            st.session_state[f"raw_narrative_{idx}"] = res['final_narrative']
-            st.session_state.page = "review"
-        else:
-            msg = f"{res['conversational_response']} {res['next_question']}"
-            st.session_state[f"msgs_{idx}"].append(AIMessage(content=msg))
-            st.session_state[f"curr_q_{idx}"] = res['next_question']
+        # SPINNER ADDED FOR INTERACTION
+        with st.spinner("AI is analyzing your response..."):
+            res = process_interview_step(st.session_state[f"hist_{idx}"], val)
+            if res['status'] == 'complete':
+                st.session_state[f"raw_narrative_{idx}"] = res['final_narrative']
+                st.session_state.page = "review"
+            else:
+                msg = f"{res['conversational_response']} {res['next_question']}"
+                st.session_state[f"msgs_{idx}"].append(AIMessage(content=msg))
+                st.session_state[f"curr_q_{idx}"] = res['next_question']
         st.rerun()
 
 def show_review():
@@ -123,7 +124,7 @@ def show_review():
             st.session_state.current_idx = 1
             st.session_state.page = "chat"
         else:
-            st.session_state.current_idx = 0 # Reset to begin ratings in same order
+            st.session_state.current_idx = 0 
             st.session_state.page = "motives"
         st.rerun()
 
