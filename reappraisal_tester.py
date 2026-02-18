@@ -10,19 +10,24 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
 
 # --- 0. CONFIGURATION & UI SETUP ---
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-2.5-flash" 
 TEMP = 0.8
 PROLIFIC_COMPLETION_CODE = "YOUR_CODE_HERE" 
 
 st.set_page_config(page_title="Psychological Study", layout="centered")
 
-# Original CSS Injection for tight UI and column borders
+# INITIALIZE SESSION STATE (Prevents AttributeError)
+if 'page' not in st.session_state:
+    st.session_state.page = 'consent'
+
+# Restoring your original aggressive CSS for tight UI and column borders
 st.markdown("""
 <style>
 .stForm { max-width: 900px; margin: 0 auto; padding: 5px; }
 div[data-testid="stVerticalBlock"], div[data-testid="stHorizontalBlock"] { margin: 0 !important; padding: 0 !important; }
 h1, h2, h3, h4 { margin-top: 0.5rem !important; margin-bottom: 0.2rem !important; padding-top: 0.25rem !important; }
 .stForm h4 { margin-top: 10px !important; margin-bottom: 5px !important; border-bottom: 1px solid #ddd; }
+/* Original vertical border for columns */
 div[data-testid="stHorizontalBlock"] > div:nth-child(2) { border-left: 1px solid #ccc; padding-left: 15px; }
 div[role="radiogroup"] { gap: 0px !important; }
 div[role="radiogroup"] label { font-size: 0.9rem !important; margin-right: 5px !important; }
@@ -40,8 +45,6 @@ MOTIVES_GOALS = [
     ("Instrumental", "To gain something", "To avoid something"),
 ]
 
-INTERVIEW_QUESTIONS = ["What happened?", "Why?", "Is it finished?", "How big a deal?", "Desired outcome?", "Responsibility?", "Changeability?", "Expectations?"]
-
 # --- 2. LLM & DB SETUP ---
 @st.cache_resource
 def get_llm():
@@ -57,14 +60,10 @@ def get_db():
 llm = get_llm()
 db = get_db()
 
-# --- 3. LOGIC ---
+# --- 3. HELPER FUNCTIONS ---
 def process_interview_step(history, valence):
     qa_pairs = "\n---\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in history])
-    prompt = f"""
-    Analyze the user's description of a {valence} event. 
-    History: {qa_pairs}
-    Return JSON: {{"status": "continue"|"complete", "conversational_response": "...", "next_question": "...", "final_narrative": "..."}}
-    """
+    prompt = f"Analyze description of {valence} event. History: {qa_pairs}. Return JSON: {{'status': 'continue'|'complete', 'conversational_response': '...', 'next_question': '...', 'final_narrative': '...'}}"
     res = llm.invoke(prompt)
     text = re.sub(r"```json|```", "", res.content).strip()
     return json.loads(text)
@@ -77,19 +76,17 @@ def show_consent():
     if st.button("I Consent", type="primary"):
         orders = ["Positive", "Negative"]
         random.shuffle(orders)
-        st.session_state.update({"event_order": orders, "current_idx": 0, "page": "chat", "results": {}})
+        st.session_state.update({"event_order": orders, "current_idx": 0, "page": "chat"})
         st.rerun()
 
 def show_chat():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
-    st.header(f"Step {idx+1}/2: Describe a {val} Event")
+    st.header(f"Phase 1: {val} Event Interview")
 
     if f"msgs_{idx}" not in st.session_state:
         init_q = f"Could you describe a recent **{val.lower()}** emotionally significant event?"
-        st.session_state[f"msgs_{idx}"] = [AIMessage(content=init_q)]
-        st.session_state[f"hist_{idx}"] = []
-        st.session_state[f"curr_q_{idx}"] = init_q
+        st.session_state.update({f"msgs_{idx}": [AIMessage(content=init_q)], f"hist_{idx}": [], f"curr_q_{idx}": init_q})
 
     for m in st.session_state[f"msgs_{idx}"]:
         with st.chat_message("user" if isinstance(m, HumanMessage) else "assistant"): st.write(m.content)
@@ -110,15 +107,15 @@ def show_chat():
 
 def show_review():
     idx = st.session_state.current_idx
-    st.header("📝 Review & Experience")
-    narrative = st.text_area("Edit your story:", value=st.session_state[f"raw_narrative_{idx}"], height=250)
+    st.header("📝 Narrative Review")
+    narrative = st.text_area("Edit your story for accuracy:", value=st.session_state[f"raw_narrative_{idx}"], height=250)
     
     col1, col2 = st.columns(2)
-    h_val = col1.slider("Helpfulness (1-9)", 1, 9, 5, key=f"h_{idx}")
-    f_val = col2.slider("Naturalness (1-9)", 1, 9, 5, key=f"f_{idx}")
-    fb_text = st.text_area("Comments on AI interaction?", key=f"fb_{idx}")
+    h_val = col1.slider("AI Helpfulness (1-9)", 1, 9, 5, key=f"h_{idx}")
+    f_val = col2.slider("AI Naturalness (1-9)", 1, 9, 5, key=f"f_{idx}")
+    fb_text = st.text_area("Additional feedback on AI?", key=f"fb_{idx}")
 
-    if st.button("Confirm Event Description"):
+    if st.button("Confirm and Next"):
         st.session_state[f"final_narrative_{idx}"] = narrative
         st.session_state[f"feedback_{idx}"] = {"help": h_val, "flow": f_val, "text": fb_text}
         
@@ -126,14 +123,14 @@ def show_review():
             st.session_state.current_idx = 1
             st.session_state.page = "chat"
         else:
-            st.session_state.current_idx = 0 # Reset to 0 for the Motive Rating order
+            st.session_state.current_idx = 0 # Reset to begin ratings in same order
             st.session_state.page = "motives"
         st.rerun()
 
 def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
-    st.header(f"📊 Motive Appraisal: {val} Event ({idx+1}/2)")
+    st.header(f"Phase 2: Motive Ratings ({val} Event)")
     st.info(st.session_state[f"final_narrative_{idx}"])
 
     scores = {}
@@ -149,33 +146,33 @@ def show_motives():
             if idx == 0:
                 st.session_state.current_idx = 1
             else:
-                save_data()
+                save_to_firestore()
                 st.session_state.page = "finish"
             st.rerun()
 
-def save_data():
+def save_to_firestore():
     data = {
         "prolific_id": st.session_state.prolific_id,
         "timestamp": datetime.datetime.now().isoformat(),
         "event_order": st.session_state.event_order,
-        "payload": []
+        "results": [
+            {
+                "valence": st.session_state.event_order[i],
+                "chat_history": st.session_state[f"hist_{i}"],
+                "initial_narrative": st.session_state[f"raw_narrative_{i}"],
+                "final_narrative": st.session_state[f"final_narrative_{i}"],
+                "ux_ratings": st.session_state[f"feedback_{i}"],
+                "motive_scores": st.session_state[f"motive_scores_{i}"]
+            } for i in range(2)
+        ]
     }
-    for i in range(2):
-        data["payload"].append({
-            "valence": st.session_state.event_order[i],
-            "full_chat_history": [{"q": x['question'], "a": x['answer']} for x in st.session_state[f"hist_{i}"]],
-            "initial_synthesized_narrative": st.session_state[f"raw_narrative_{i}"],
-            "user_edited_narrative": st.session_state[f"final_narrative_{i}"],
-            "user_experience": st.session_state[f"feedback_{i}"],
-            "motive_ratings": st.session_state[f"motive_scores_{i}"]
-        })
-    db.collection("prolific_study_v2").add(data)
+    db.collection("study_v2_results").add(data)
 
 def show_finish():
     st.balloons()
-    st.title("✅ Completed")
+    st.title("✅ Participation Complete")
     st.link_button("Return to Prolific", f"https://app.prolific.com/submissions/complete?cc={PROLIFIC_COMPLETION_CODE}")
 
-# --- 5. ROUTER ---
+# --- 5. MAIN ROUTER ---
 pages = {"consent": show_consent, "chat": show_chat, "review": show_review, "motives": show_motives, "finish": show_finish}
 pages[st.session_state.page]()
