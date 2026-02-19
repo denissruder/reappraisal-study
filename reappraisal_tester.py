@@ -19,6 +19,7 @@ st.set_page_config(page_title="Psychological Study", layout="centered")
 if 'page' not in st.session_state:
     st.session_state.page = 'consent'
 
+# Injecting original CSS
 st.markdown("""
 <style>
 .stForm { max-width: 900px; margin: 0 auto; padding: 5px; }
@@ -32,16 +33,15 @@ div[role="radiogroup"] label { font-size: 0.9rem !important; margin-right: 5px !
 """, unsafe_allow_html=True)
 
 # --- 1. CORE DATA ---
-
 INTERVIEW_QUESTIONS = [
-    "Event: What happened?",
-    "Feeling: How did the situation leave you feeling?",
-    "Goal: What were you trying to do? What did you want or need in this situation?",
-    "Congruence: In what ways did this situation help or hurt you?",
-    "Relevance: How much did this situation matter to you? Why?",
-    "Accountability: Who or what did you feel was most responsible for this situation?",
-    "Control: Did you feel like you were in control in this situation? Why?",
-    "Other: Is there anything else that was important to you in this situation?"
+    "What happened?",
+    "How did the situation leave you feeling?",
+    "What were you trying to do? What did you want or need in this situation?",
+    "In what ways did this situation help or hurt you?",
+    "How much did this situation matter to you? Why?",
+    "Who or what did you feel was most responsible for this situation?",
+    "Did you feel like you were in control in this situation? Why?",
+    "Is there anything else that was important to you in this situation?"
 ]
 
 MOTIVES_GOALS = [
@@ -71,7 +71,6 @@ llm = get_llm()
 db = get_db()
 
 # --- 3. DYNAMIC INTERVIEWER PROMPT ---
-
 INTERVIEW_PROMPT_TEMPLATE = """ 
 #ROLE: Dynamic Interviewer for Psychological Study 
 You are an Interviewer for a psychological study. Your goal is to collect all 8 key pieces of information (CORE QUESTIONS) about an event from the user's responses. You may skip asking some of these questions if the user has already responded to them. 
@@ -93,23 +92,20 @@ Your task is:
 Return your response in JSON format exactly like this:
 {{
   "status": "continue" or "complete",
-  "conversational_response": "Brief acknowledgement of the user's last point",
-  "next_question": "The string of the next CORE QUESTION to ask",
-  "final_narrative": "The full synthesized 1st-person narrative (only if status is complete)"
+  "conversational_response": "Brief acknowledgement",
+  "next_question": "Next CORE QUESTION string",
+  "final_narrative": "Full synthesized 1st-person narrative (if complete)"
 }}
 """
 
 def process_interview_step(history, valence):
     qa_pairs = "\n---\n".join([f"Q: {qa['question']}\nA: {qa['answer']}" for qa in history])
-    
     formatted_prompt = INTERVIEW_PROMPT_TEMPLATE.format(
         valence=valence,
         qa_pairs=qa_pairs,
         all_questions="\n".join(INTERVIEW_QUESTIONS)
     )
-    
     res = llm.invoke(formatted_prompt)
-    # Clean JSON output from potential markdown formatting
     text = re.sub(r"```json|```", "", res.content).strip()
     return json.loads(text)
 
@@ -117,13 +113,9 @@ def process_interview_step(history, valence):
 
 def show_consent():
     st.title("📄 Research Participation Consent")
-    st.markdown("""
-    Welcome to our study. You will be asked to describe one positive and one negative event from your recent life. 
-    Following each description, you will rate a series of motives related to that experience.
-    """)
+    st.markdown("Welcome to our study. You will describe one positive and one negative event.")
     pid = st.query_params.get("PROLIFIC_PID", f"test_{uuid.uuid4().hex[:6]}")
     st.session_state.prolific_id = pid
-    
     if st.button("Agree and Start Study", type="primary"):
         orders = ["Positive", "Negative"]
         random.shuffle(orders)
@@ -135,45 +127,53 @@ def show_chat():
     val = st.session_state.event_order[idx]
     
     st.header(f"Phase 1: Describe your {val} Event")
-    st.info(f"Please respond to the assistant below regarding your **{val.lower()}** event.")
-
+    
     if f"msgs_{idx}" not in st.session_state:
-        # Start with the first core question as mandated by the prompt
-        init_q = INTERVIEW_QUESTIONS[0] 
+        init_q = INTERVIEW_QUESTIONS[0]
         st.session_state.update({f"msgs_{idx}": [AIMessage(content=init_q)], f"hist_{idx}": [], f"curr_q_{idx}": init_q})
 
+    # Display Chat History
     for m in st.session_state[f"msgs_{idx}"]:
-        with st.chat_message("user" if isinstance(m, HumanMessage) else "assistant"): st.write(m.content)
+        with st.chat_message("user" if isinstance(m, HumanMessage) else "assistant"): 
+            st.write(m.content)
+
+    # Use a container to place the spinner exactly where the next message will appear
+    spinner_placeholder = st.empty()
 
     if user_input := st.chat_input("Type your response..."):
+        # 1. Update user view immediately
         st.session_state[f"msgs_{idx}"].append(HumanMessage(content=user_input))
         st.session_state[f"hist_{idx}"].append({"question": st.session_state[f"curr_q_{idx}"], "answer": user_input})
         
-        with st.spinner("Processing..."):
-            res = process_interview_step(st.session_state[f"hist_{idx}"], val)
-            if res['status'] == 'complete':
-                st.session_state[f"raw_narrative_{idx}"] = res['final_narrative']
-                st.session_state.page = "review"
-            else:
-                msg = f"{res['conversational_response']} {res['next_question']}"
-                st.session_state[f"msgs_{idx}"].append(AIMessage(content=msg))
-                st.session_state[f"curr_q_{idx}"] = res['next_question']
+        # 2. Trigger rerun to show the user's message before AI processing
         st.rerun()
+
+    # If the last message was from the user, we process AI response
+    if st.session_state[f"msgs_{idx}"] and isinstance(st.session_state[f"msgs_{idx}"][-1], HumanMessage):
+        with spinner_placeholder:
+            with st.chat_message("assistant"):
+                with st.spinner("Processing your response..."):
+                    res = process_interview_step(st.session_state[f"hist_{idx}"], val)
+                    
+                    if res['status'] == 'complete':
+                        st.session_state[f"raw_narrative_{idx}"] = res['final_narrative']
+                        st.session_state.page = "review"
+                    else:
+                        msg = f"{res['conversational_response']} {res['next_question']}"
+                        st.session_state[f"msgs_{idx}"].append(AIMessage(content=msg))
+                        st.session_state[f"curr_q_{idx}"] = res['next_question']
+                    st.rerun()
 
 def show_review():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     st.header("📝 Narrative Review")
-    st.markdown("Please review the narrative below and edit it to ensure it captures your experience in your own words.")
-    
     narrative = st.text_area("Event Narrative:", value=st.session_state[f"raw_narrative_{idx}"], height=250)
     
-    st.divider()
-    st.subheader("Experience Feedback")
     col1, col2 = st.columns(2)
     h_val = col1.slider("AI Helpfulness (1-9)", 1, 9, 5, key=f"h_{idx}")
     f_val = col2.slider("Conversation Naturalness (1-9)", 1, 9, 5, key=f"f_{idx}")
-    fb_text = st.text_area("Additional feedback on the chat interface:", key=f"fb_{idx}")
+    fb_text = st.text_area("Feedback on chat interface:", key=f"fb_{idx}")
 
     if st.button("Confirm Narrative"):
         st.session_state[f"final_narrative_{idx}"] = narrative
@@ -197,7 +197,7 @@ def show_motives():
 
     scores = {}
     with st.form(f"motive_form_{idx}"):
-        st.markdown("**1 = Not at all Important | 9 = Extremely Important**")
+        st.markdown("**1 = Not Important | 9 = Extremely Important**")
         for name, pro, prev in MOTIVES_GOALS:
             st.markdown(f"#### {name}")
             c1, c2 = st.columns(2)
