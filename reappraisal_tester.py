@@ -192,6 +192,8 @@ def process_interview_step(history, valence):
 def show_consent():
     st.title("📄 Research Participation Consent")
     
+    st.markdown("<hr style='margin: 0x 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+    
     # Custom CSS to make the consent text look more like a document
     st.markdown("""
         <style>
@@ -221,7 +223,7 @@ def show_consent():
     **Consent Statement** By clicking **"Agree and Start Study"** below, you indicate that you are at least 18 years of age, have read and understood the information provided above, and voluntarily agree to participate in this study.
     """)
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 0x 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
     # Prolific ID logic remains untouched
     pid = st.query_params.get("PROLIFIC_PID", f"test_{uuid.uuid4().hex[:6]}")
