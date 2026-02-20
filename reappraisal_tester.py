@@ -24,6 +24,11 @@ if 'page' not in st.session_state:
 st.markdown("""
 <style>
 
+/* 0. NEW: Page-wide top margin reduction */
+.block-container {
+    padding-top: 1.5rem !important;
+}
+
 /* 1. Global Container/Form Spacing Reduction */
 .stForm {
     max-width: 900px;
