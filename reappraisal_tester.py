@@ -26,7 +26,7 @@ st.markdown("""
 
 /* 0. NEW: Page-wide top margin reduction */
 .block-container {
-    padding-top: 1.5rem !important;
+    padding-top: 2rem !important;
 }
 
 /* 1. Global Container/Form Spacing Reduction */
