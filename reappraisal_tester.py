@@ -190,14 +190,50 @@ def process_interview_step(history, valence):
 # --- 4. APP PAGES ---
 
 def show_consent():
-    st.header("📄 Research Participation Consent")
+    st.title("📄 Research Participation Consent")
+    
+    # Custom CSS to make the consent text look more like a document
     st.markdown("""
-    Welcome to our study. You will be asked to describe one positive and one negative event from your recent life. 
-    Following each description, you will rate a series of motives related to that experience.
+        <style>
+        .consent-text {
+            font-size: 1.0rem;
+            line-height: 1.6;
+            text-align: justify;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="consent-text">', unsafe_allow_html=True)
+    
+    st.markdown("### Project Title: Cognitive Appraisal and Motive Attribution Study")
+
+    st.write("""
+    **Introduction and Purpose** You are invited to participate in a research study exploring how individuals perceive and attribute motives to personal life events. The goal of this research is to understand the relationship between narrative descriptions of experiences and the underlying psychological drivers—specifically looking at how "Promotion" (aspirational goals) and "Prevention" (safety and avoidance goals) orientations manifest in everyday situations.
+
+    **Study Procedures** If you agree to participate, you will be asked to complete the following steps:
+    * **Narrative Description:** You will be prompted to describe two recent, distinct events from your life: one that you perceive as emotionally positive and one that you perceive as emotionally negative.
+    * **Interactive Interview:** An AI-driven research assistant will ask follow-up questions to help synthesize a clear, first-person account of these events.
+    * **Motive Appraisal:** You will review the synthesized narratives and provide importance ratings for a series of psychological motives (such as Health, Wealth, Relatedness, and Purpose) across both events.
+
+    **Data Privacy and Confidentiality** Your privacy is our priority. All data collected, including your Prolific ID, text narratives, and motive ratings, will be stored securely in an encrypted database.
+    * **Anonymization:** Your personal identity is never directly linked to your responses in any public-facing report or publication.
+    * **Storage:** Data is used strictly for academic research purposes to improve our understanding of human cognition.
+
+    **Voluntary Participation and Risks** Participation in this study is strictly voluntary.
+    * **Right to Withdraw:** You may choose to stop the study at any time by closing the browser window without penalty; however, completion of all sections is required for compensation via Prolific.
+    * **Potential Risks:** There are no known physical risks. Some participants may experience mild emotional discomfort when describing a negative life event. You are encouraged to describe events that you feel comfortable sharing in a research context.
+
+    **Consent Statement** By clicking **"Agree and Start Study"** below, you indicate that you are at least 18 years of age, have read and understood the information provided above, and voluntarily agree to participate in this study.
     """)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Prolific ID logic remains untouched
     pid = st.query_params.get("PROLIFIC_PID", f"test_{uuid.uuid4().hex[:6]}")
     st.session_state.prolific_id = pid
     
+    st.divider()
+
     if st.button("Agree and Start Study", type="primary"):
         orders = ["Positive", "Negative"]
         random.shuffle(orders)
