@@ -190,9 +190,7 @@ def process_interview_step(history, valence):
 # --- 4. APP PAGES ---
 
 def show_consent():
-    st.title("📄 Research Participation Consent")
-    
-    st.markdown("<hr style='margin: 0x 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+    st.header("📄 Research Participation Consent")
     
     # Custom CSS to make the consent text look more like a document
     st.markdown("""
