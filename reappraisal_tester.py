@@ -259,7 +259,7 @@ def show_motives():
     val = st.session_state.event_order[idx]
     st.header(f"Phase 2: Motive Ratings ({val} Event)")
     
-    st.info(f"Please rate the importance of the following {len(MOTIVES_FULL)} motives to you based on the event you described **1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
+    st.info(f"Please rate the importance of the following motives to you based on the event you described **1 = Not Important At All** | **{RATING_SCALE_MAX} = Extremely Important**")
 
     with st.expander("Reference: Your Narrative", expanded=True):
         st.write(st.session_state[f"final_narrative_{idx}"])
