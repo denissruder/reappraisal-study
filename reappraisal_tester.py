@@ -255,6 +255,8 @@ def show_review():
         st.rerun()
 
 def show_motives():
+    st.markdown("<div id='top'></div>", unsafe_allow_html=True)
+    
     # 1. Force the page to the top by rendering the header and info immediately
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
