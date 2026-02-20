@@ -229,8 +229,6 @@ def show_consent():
     pid = st.query_params.get("PROLIFIC_PID", f"test_{uuid.uuid4().hex[:6]}")
     st.session_state.prolific_id = pid
     
-    st.divider()
-
     if st.button("Agree and Start Study", type="primary"):
         orders = ["Positive", "Negative"]
         random.shuffle(orders)
