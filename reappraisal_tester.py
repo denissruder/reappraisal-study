@@ -324,10 +324,6 @@ def show_motives():
 
             if missing_fields:
                 st.error("### ⚠️ Missing Ratings")
-                st.write("Please provide a rating for the following:")
-                for field in missing_fields:
-                    st.write(f"- {field}")
-                # Stops execution so data isn't saved
             else:
                 st.session_state["motive_scores_0"] = all_scores[0]
                 st.session_state["motive_scores_1"] = all_scores[1]
