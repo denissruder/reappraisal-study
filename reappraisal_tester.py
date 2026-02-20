@@ -194,17 +194,6 @@ def show_consent():
     
     st.markdown("<hr style='margin: 0x 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
     
-    # Custom CSS to make the consent text look more like a document
-    st.markdown("""
-        <style>
-        .consent-text {
-            font-size: 1.0rem;
-            line-height: 1.6;
-            text-align: justify;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
     st.markdown("### Project Title: Cognitive Appraisal and Motive Attribution Study")
 
     st.write("""
