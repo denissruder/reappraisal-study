@@ -208,13 +208,8 @@ def show_consent():
     st.markdown("### Project Title: Cognitive Appraisal and Motive Attribution Study")
 
     st.write("""
-    **Introduction and Purpose** You are invited to participate in a research study exploring how individuals perceive and attribute motives to personal life events. The goal of this research is to understand the relationship between narrative descriptions of experiences and the underlying psychological drivers—specifically looking at how "Promotion" (aspirational goals) and "Prevention" (safety and avoidance goals) orientations manifest in everyday situations.
-
-    **Study Procedures** If you agree to participate, you will be asked to complete the following steps:
-    * **Narrative Description:** You will be prompted to describe two recent, distinct events from your life: one that you perceive as emotionally positive and one that you perceive as emotionally negative.
-    * **Interactive Interview:** An AI-driven research assistant will ask follow-up questions to help synthesize a clear, first-person account of these events.
-    * **Motive Appraisal:** You will review the synthesized narratives and provide importance ratings for a series of psychological motives (such as Health, Wealth, Relatedness, and Purpose) across both events.
-
+    **Introduction and Purpose** You are invited to participate in a research study exploring how individuals perceive and attribute motives to personal life events.
+    
     **Data Privacy and Confidentiality** Your privacy is our priority. All data collected, including your Prolific ID, text narratives, and motive ratings, will be stored securely in an encrypted database.
     * **Anonymization:** Your personal identity is never directly linked to your responses in any public-facing report or publication.
     * **Storage:** Data is used strictly for academic research purposes to improve our understanding of human cognition.
