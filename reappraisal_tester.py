@@ -308,10 +308,6 @@ def show_motives():
                 st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
             all_scores[idx] = event_scores
-            
-            # Add extra space between the two events
-            if idx == 0:
-                st.markdown("<br><br>", unsafe_allow_html=True)
 
         # 2. Final Submit Button
         if st.form_submit_button("Submit All and Finish Study", type="primary"):
