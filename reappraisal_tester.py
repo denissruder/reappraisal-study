@@ -262,11 +262,6 @@ def show_review():
             st.session_state.page = "motives"
         st.rerun()
 
-Here is the corrected function. The issue in your code was that the dictionary keys used during creation (f"{name}_Promotion") did not match the keys used during validation (f"{val}_{name}_Promotion"), which causes a KeyError.
-
-I have standardized them to use the simple {name}_Promotion format for both.
-Python
-
 def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
