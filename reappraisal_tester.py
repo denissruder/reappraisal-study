@@ -292,7 +292,7 @@ def show_motives():
                     event_scores[f"{name}_Promotion"] = st.radio(
                         f"{pro}", 
                         options=RADIO_OPTIONS, 
-                        index=4, 
+                        index=None, 
                         horizontal=True, 
                         key=f"sit_{name}_pro_{idx}"
                     )
@@ -300,7 +300,7 @@ def show_motives():
                     event_scores[f"{name}_Prevention"] = st.radio(
                         f"{prev}", 
                         options=RADIO_OPTIONS, 
-                        index=4, 
+                        index=None, 
                         horizontal=True, 
                         key=f"sit_{name}_prev_{idx}"
                     )
@@ -308,17 +308,34 @@ def show_motives():
                 st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
             all_scores[idx] = event_scores
-
-        # 2. Final Submit Button
-        if st.form_submit_button("Submit All and Finish Study", type="primary"):
-            # Save both sets of scores to session state
-            st.session_state["motive_scores_0"] = all_scores[0]
-            st.session_state["motive_scores_1"] = all_scores[1]
             
-            with st.spinner("Saving all data..."):
-                save_to_firestore()
-                st.session_state.page = "finish"
-                st.rerun()
+        # Submit and Validation Logic
+        if st.form_submit_button("Submit All and Finish Study", type="primary"):
+            missing_fields = []
+            
+            # Check every motive for both events
+            for idx in [0, 1]:
+                val = st.session_state.event_order[idx]
+                for key, value in all_scores[idx].items():
+                    if value is None:
+                        # Clean up the key name for the error message
+                        motive_name = key.replace("_Promotion", " (Goal)").replace("_Prevention", " (Avoidance)")
+                        missing_fields.append(f"{val} Event: {motive_name}")
+
+            if missing_fields:
+                st.error("### ⚠️ Missing Ratings")
+                st.write("Please provide a rating for the following:")
+                for field in missing_fields:
+                    st.write(f"- {field}")
+                # Stops execution so data isn't saved
+            else:
+                st.session_state["motive_scores_0"] = all_scores[0]
+                st.session_state["motive_scores_1"] = all_scores[1]
+                
+                with st.spinner("Saving all data..."):
+                    save_to_firestore()
+                    st.session_state.page = "finish"
+                    st.rerun()
                 
 def save_to_firestore():
     data = {
