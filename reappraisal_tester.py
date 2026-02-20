@@ -20,6 +20,7 @@ st.set_page_config(page_title="Psychological Study", layout="centered")
 if 'page' not in st.session_state:
     st.session_state.page = 'consent'
 
+# Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
 <style>
 
