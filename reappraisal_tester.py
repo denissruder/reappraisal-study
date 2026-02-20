@@ -277,15 +277,13 @@ def show_motives():
             col1, col2 = st.columns(2) 
             with col1:
                 scores[f"{name}_Promotion"] = st.radio(
-                    f"**Goal:** {pro}", 
                     options=RADIO_OPTIONS, 
                     index=4, 
                     horizontal=True, 
                     key=f"sit_{name}_pro_{idx}"
                 )
             with col2:
-                scores[f"{name}_Prevention"] = st.radio(
-                    f"**Avoidance:** {prev}", 
+                scores[f"{name}_Prevention"] = st.radio( 
                     options=RADIO_OPTIONS, 
                     index=4, 
                     horizontal=True, 
