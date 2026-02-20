@@ -262,9 +262,9 @@ def show_motives():
     
     st.title(f"Phase 2: Motive Ratings ({val} Event)")
 
-    st.info("### Rate the importance of the following motives based on this event:")
+    st.info("Rate the importance of the following motives based on this event:")
     
-    st.markdown(f"**Your Narrative Reference:**\n\n{st.session_state[f'final_narrative_{idx}']}")
+    st.markdown(f"Your Narrative Reference:\n\n{st.session_state[f'final_narrative_{idx}']}")
 
     scores = {}
     # Use the same CSS-friendly structure from the tester file
