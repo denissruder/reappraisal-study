@@ -327,11 +327,11 @@ def save_to_firestore():
             } for i in range(2)
         ]
     }
-    db.collection("study_v2_results").add(data)
+    db.collection("prolific_study").add(data)
 
 def show_finish():
     st.balloons()
-    st.title("✅ Study Complete")
+    st.header("✅ Study Complete")
     st.success("Your responses have been saved.")
     st.link_button("Return to Prolific", f"https://app.prolific.com/submissions/complete?cc={PROLIFIC_COMPLETION_CODE}")
 
