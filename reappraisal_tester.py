@@ -266,7 +266,6 @@ def show_motives():
     with st.form(f"motive_form_{idx}"):
         st.markdown("**1 = Not at all Important | 9 = Extremely Important**")
         for name, pro, prev in MOTIVES_GOALS:
-            st.markdown(f"#### {name}")
             c1, c2 = st.columns(2)
             scores[f"{name}_Promotion"] = c1.radio(f"Goal: {pro}", range(1,10), index=4, horizontal=True)
             scores[f"{name}_Prevention"] = c2.radio(f"Avoidance: {prev}", range(1,10), index=4, horizontal=True)
