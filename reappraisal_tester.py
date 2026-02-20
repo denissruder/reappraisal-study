@@ -139,6 +139,20 @@ def get_db():
 llm = get_llm()
 db = get_db()
 
+# --- UTILS ---
+
+def scroll_to_top():
+    """Injects JavaScript to force the browser to the top of the page."""
+    js = """
+    <script>
+        var body = window.parent.document.querySelector(".main");
+        if (body) {
+            body.scrollTo({top: 0, behavior: 'smooth'});
+        }
+    </script>
+    """
+    st.components.v1.html(js, height=0)
+
 # --- 3. DYNAMIC INTERVIEWER PROMPT ---
 
 INTERVIEW_PROMPT_TEMPLATE = """ 
@@ -261,14 +275,7 @@ def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
 
-    # 1. The JS fix: You MUST target 'window.parent' to break out of the iframe
-    # Adding a 'key' that changes (like current_idx) forces the JS to execute every time
-    components.html(
-        f"""<script>
-            window.parent.document.querySelector('section.main').scrollTo(0, 0);
-        </script>""",
-        height=0,
-    )
+    scroll_to_top()
     
     st.header(f"Phase 2: Motive Ratings ({val} Event)")
     
