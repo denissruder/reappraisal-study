@@ -323,7 +323,7 @@ def show_motives():
                         missing_fields.append(f"{val} Event: {motive_name}")
 
             if missing_fields:
-                st.error("## ⚠️ Some ratings are missing. Please provide missing ratings for both events.")
+                st.error("⚠️ Some ratings are missing. Please provide missing ratings for both events.")
             else:
                 st.session_state["motive_scores_0"] = all_scores[0]
                 st.session_state["motive_scores_1"] = all_scores[1]
