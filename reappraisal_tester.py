@@ -256,43 +256,58 @@ def show_review():
             st.session_state.page = "motives"
         st.rerun()
 
-def show_motives():   
+def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
-    
-    st.header(f"Phase 2: Motive Ratings ({val} Event)")
+    narrative_text = st.session_state[f"final_narrative_{idx}"]
 
-    st.info("Rate the importance of the following motives based on this event:")
+    # In the old app, this was the primary way to force the view to the top
+    st.header(f"📊 Motive Ratings ({val} Event)")
     
-    st.markdown(f"{st.session_state[f'final_narrative_{idx}']}")
+    # We place the narrative inside the info box exactly like the old app's prompt
+    st.info(f"**Event Narrative:** {narrative_text}")
+    st.markdown(f"Please rate the importance of the following motives to you based on the event you described.")
 
+    RADIO_OPTIONS = list(range(1, 10)) 
     scores = {}
-    # Use the same CSS-friendly structure from the tester file
-    with st.form(f"motive_form_{idx}"):
-        st.markdown("**1 = Not at all Important | 9 = Extremely Important**")
-        
+
+    with st.form(f"situation_rating_form_{idx}"):
+        # Use the same loop structure as the original file
         for name, pro, prev in MOTIVES_GOALS:
-            # The horizontal rule helps with visual scanning
+            col1, col2 = st.columns(2) 
+            with col1:
+                scores[f"{name}_Promotion"] = st.radio(
+                    f"**Goal:** {pro}", 
+                    options=RADIO_OPTIONS, 
+                    index=4, 
+                    horizontal=True, 
+                    key=f"sit_{name}_pro_{idx}"
+                )
+            with col2:
+                scores[f"{name}_Prevention"] = st.radio(
+                    f"**Avoidance:** {prev}", 
+                    options=RADIO_OPTIONS, 
+                    index=4, 
+                    horizontal=True, 
+                    key=f"sit_{name}_prev_{idx}"
+                )
+            # Replicate the grey horizontal rule separator
             st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
-            # Use columns inside the form to keep it compact
-            c1, c2 = st.columns(2)
-            with c1:
-                scores[f"{name}_Promotion"] = st.radio(f"Goal: {pro}", range(1,10), index=4, horizontal=True, key=f"pro_{name}_{idx}")
-            with c2:
-                scores[f"{name}_Prevention"] = st.radio(f"Avoidance: {prev}", range(1,10), index=4, horizontal=True, key=f"prev_{name}_{idx}")
-
-        if st.form_submit_button("Submit and Continue"):
+        # 4. Replicate the routing logic
+        submit_label = "Next Event" if idx == 0 else "Submit and Finish"
+        if st.form_submit_button(submit_label, type="primary"):
             st.session_state[f"motive_scores_{idx}"] = scores
+            
             if idx == 0:
                 st.session_state.current_idx = 1
-                # Triggering rerun forces the script to start from top of show_motives with idx=1
+                # The rerun starts the script over, hitting the header first
                 st.rerun() 
             else:
-                with st.spinner("Saving data..."):
+                with st.spinner("Saving your responses..."):
                     save_to_firestore()
-                st.session_state.page = "finish"
-                st.rerun()
+                    st.session_state.page = 'finish'
+                    st.rerun()
                 
 def save_to_firestore():
     data = {
