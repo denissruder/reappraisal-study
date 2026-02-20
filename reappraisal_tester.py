@@ -5,7 +5,6 @@ import datetime
 import uuid
 import random
 import re
-import streamlit.components.v1 as components
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
@@ -139,20 +138,6 @@ def get_db():
 llm = get_llm()
 db = get_db()
 
-# --- UTILS ---
-
-def scroll_to_top():
-    """Injects JavaScript to force the browser to the top of the page."""
-    js = """
-    <script>
-        var body = window.parent.document.querySelector(".main");
-        if (body) {
-            body.scrollTo({top: 0, behavior: 'smooth'});
-        }
-    </script>
-    """
-    st.components.v1.html(js, height=0)
-
 # --- 3. DYNAMIC INTERVIEWER PROMPT ---
 
 INTERVIEW_PROMPT_TEMPLATE = """ 
@@ -217,7 +202,7 @@ def show_chat():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     
-    st.header(f"Phase 1: Describe your {val} Event")
+    st.title(f"Phase 1: Describe your {val} Event")
     st.info(f"Please respond to the assistant below regarding your **{val.lower()}** event.")
 
     if f"msgs_{idx}" not in st.session_state:
@@ -247,8 +232,8 @@ def show_review():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     
-    st.header("📝 Narrative Review")
-    st.info("Please review the narrative below and edit it to ensure it captures your experience in your own words.")
+    st.title("📝 Narrative Review")
+    st.markdown("Please review the narrative below and edit it to ensure it captures your experience in your own words.")
     
     narrative = st.text_area("Event Narrative:", value=st.session_state[f"raw_narrative_{idx}"], height=250)
     
@@ -274,17 +259,12 @@ def show_review():
 def show_motives():   
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
-
-    scroll_to_top()
     
-    st.header(f"Phase 2: Motive Ratings ({val} Event)")
-    
-    # This info box acts as a visual anchor at the top
-    st.info(f"Please rate the importance of the following motives to you based on the event you described.")
+    st.title(f"Phase 2: Motive Ratings ({val} Event)")
 
-    # 2. Use an expander for the narrative so it doesn't push the form too far down
-    with st.expander("Reference: Your Narrative", expanded=False): # Changed to False to save space
-        st.write(st.session_state[f"final_narrative_{idx}"])
+    st.info("### Rate the importance of the following motives based on this event:")
+    
+    st.markdown(f"**Your Narrative Reference:**\n\n{st.session_state[f'final_narrative_{idx}']}")
 
     scores = {}
     # Use the same CSS-friendly structure from the tester file
