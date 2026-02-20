@@ -301,7 +301,6 @@ def show_review():
 def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
-    error_placeholder = st.empty()
     
     st.header(f"📊 Motive Ratings")
     
@@ -347,6 +346,8 @@ def show_motives():
                 st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
             all_scores[idx] = event_scores
+            
+        error_placeholder = st.empty()
         
         # Validation Logic using specific motive descriptions
         if st.form_submit_button("Submit All and Finish Study", type="primary"):
