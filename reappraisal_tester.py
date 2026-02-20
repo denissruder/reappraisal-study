@@ -255,34 +255,47 @@ def show_review():
         st.rerun()
 
 def show_motives():
+    # 1. Force the page to the top by rendering the header and info immediately
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
+    
     st.header(f"Phase 2: Motive Ratings ({val} Event)")
     
+    # This info box acts as a visual anchor at the top
     st.info(f"Please rate the importance of the following motives to you based on the event you described.")
 
-    with st.expander("Reference: Your Narrative", expanded=True):
+    # 2. Use an expander for the narrative so it doesn't push the form too far down
+    with st.expander("Reference: Your Narrative", expanded=False): # Changed to False to save space
         st.write(st.session_state[f"final_narrative_{idx}"])
 
     scores = {}
+    # Use the same CSS-friendly structure from the tester file
     with st.form(f"motive_form_{idx}"):
         st.markdown("**1 = Not at all Important | 9 = Extremely Important**")
+        
         for name, pro, prev in MOTIVES_GOALS:
+            # The horizontal rule helps with visual scanning
             st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            
+            # Use columns inside the form to keep it compact
             c1, c2 = st.columns(2)
-            scores[f"{name}_Promotion"] = c1.radio(f"Goal: {pro}", range(1,10), index=4, horizontal=True)
-            scores[f"{name}_Prevention"] = c2.radio(f"Avoidance: {prev}", range(1,10), index=4, horizontal=True)
+            with c1:
+                scores[f"{name}_Promotion"] = st.radio(f"Goal: {pro}", range(1,10), index=4, horizontal=True, key=f"pro_{name}_{idx}")
+            with c2:
+                scores[f"{name}_Prevention"] = st.radio(f"Avoidance: {prev}", range(1,10), index=4, horizontal=True, key=f"prev_{name}_{idx}")
 
         if st.form_submit_button("Submit and Continue"):
             st.session_state[f"motive_scores_{idx}"] = scores
             if idx == 0:
                 st.session_state.current_idx = 1
+                # Triggering rerun forces the script to start from top of show_motives with idx=1
+                st.rerun() 
             else:
                 with st.spinner("Saving data..."):
                     save_to_firestore()
                 st.session_state.page = "finish"
-            st.rerun()
-
+                st.rerun()
+                
 def save_to_firestore():
     data = {
         "prolific_id": st.session_state.prolific_id,
