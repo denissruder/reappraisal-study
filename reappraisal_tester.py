@@ -164,12 +164,14 @@ Your task is:
 4. If the event description is rich and complete (all necessary points covered), set 'status' to "complete". 
 5. If the description is incomplete, set 'status' to "continue". Select the single most relevant and important unanswered question from the list to ask next.
 
-Return your response in JSON format exactly like this:
+Your output MUST be a valid JSON object.
+
+JSON Schema:
 {{
-  "status": "continue" or "complete",
-  "conversational_response": "Brief acknowledgement of the user's last point",
-  "next_question": "The string of the next CORE QUESTION to ask",
-  "final_narrative": "The full synthesized 1st-person narrative (only if status is complete)"
+  "status": "continue" | "complete",
+  "conversational_response": "<A natural, contextual reaction acknowledging the user's last input.>",
+  "next_question": "<The full text of the next question to ask, or null if status is 'complete'.>",
+  "final_narrative": "<The cohesive, unified story based on ALL answers. This MUST be written from a first-person perspective (using 'I' and 'my'). Only required if status is 'complete'.>"
 }}
 """
 
