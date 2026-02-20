@@ -264,10 +264,11 @@ def show_motives():
     # In the old app, this was the primary way to force the view to the top
     st.header(f"📊 Motive Ratings ({val} Event)")
     
-    # We place the narrative inside the info box exactly like the old app's prompt
-    st.info(f"**Event Narrative:** {narrative_text}")
     st.markdown(f"Please rate the importance of the following motives to you based on the event you described.")
-
+    
+    # We place the narrative inside the info box exactly like the old app's prompt
+    st.info(f"{narrative_text}")
+    
     RADIO_OPTIONS = list(range(1, 10)) 
     scores = {}
 
