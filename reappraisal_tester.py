@@ -331,7 +331,7 @@ def show_motives():
                 
                 # Dynamic message based on attempt number
                 if st.session_state.fail_count >= 2:
-                    st.error("### 🚨 Still Missing Ratings!")
+                    st.error("🚨 Still Missing Ratings!")
                     st.warning("Please ensure every single row has a selection before continuing. You cannot proceed until all items are rated.")
                 else:
                     st.error("⚠️ Some ratings are missing. Please provide missing ratings for both events.")
