@@ -5,9 +5,11 @@ import datetime
 import uuid
 import random
 import re
+import streamlit.components.v1 as components
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
+
 
 # --- 0. CONFIGURATION & UI SETUP ---
 MODEL_NAME = "gemini-2.5-flash" 
@@ -256,9 +258,21 @@ def show_review():
         st.rerun()
 
 def show_motives():   
-    # 1. Force the page to the top by rendering the header and info immediately
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
+
+    # 1. The JS fix: You MUST target 'window.parent' to break out of the iframe
+    # Adding a 'key' that changes (like current_idx) forces the JS to execute every time
+    components.html(
+        f"""<script>
+            window.parent.document.querySelector('section.main').scrollTo(0, 0);
+        </script>""",
+        height=0,
+    )
+    
+    # 2. Immediate visual anchor (just like the old app)
+    st.header("Phase 2: Motive Ratings")
+    st.info("Please rate the importance of the motives below.")
     
     st.header(f"Phase 2: Motive Ratings ({val} Event)")
     
