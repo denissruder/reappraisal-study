@@ -69,7 +69,7 @@ div[data-testid="stHorizontalBlock"]:nth-child(1) {
 
 /* 5. Radio Button Spacing Fixes */
 div[data-testid^="stRadio"] {
-    margin-bottom: -5px !important; 
+    margin-bottom: -15px !important; 
 }
 div[role="radiogroup"] {
     gap: 0px !important; 
