@@ -184,7 +184,7 @@ def process_interview_step(history, valence):
 # --- 4. APP PAGES ---
 
 def show_consent():
-    st.title("📄 Research Participation Consent")
+    st.header("📄 Research Participation Consent")
     st.markdown("""
     Welcome to our study. You will be asked to describe one positive and one negative event from your recent life. 
     Following each description, you will rate a series of motives related to that experience.
@@ -202,7 +202,7 @@ def show_chat():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     
-    st.title(f"Phase 1: Describe your {val} Event")
+    st.header(f"Phase 1: Describe your {val} Event")
     st.info(f"Please respond to the assistant below regarding your **{val.lower()}** event.")
 
     if f"msgs_{idx}" not in st.session_state:
@@ -232,7 +232,7 @@ def show_review():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     
-    st.title("📝 Narrative Review")
+    st.header("📝 Narrative Review")
     st.markdown("Please review the narrative below and edit it to ensure it captures your experience in your own words.")
     
     narrative = st.text_area("Event Narrative:", value=st.session_state[f"raw_narrative_{idx}"], height=250)
