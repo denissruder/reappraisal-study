@@ -263,6 +263,9 @@ def show_review():
         st.rerun()
 
 def show_motives():
+    idx = st.session_state.current_idx
+    val = st.session_state.event_order[idx]
+    
     st.header(f"📊 Motive Ratings ({val} Event)")
     
     st.markdown("Now, please review your narratives and rate the motives for both events below.")
