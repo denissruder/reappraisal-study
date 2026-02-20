@@ -4,7 +4,6 @@ import json
 import datetime
 import uuid
 import random
-import time
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
@@ -310,38 +309,35 @@ def show_motives():
             
             all_scores[idx] = event_scores
         
+        # Validation Logic using specific motive descriptions
         if st.form_submit_button("Submit All and Finish Study", type="primary"):
-            missing_fields = []
+            missing_descriptions = []
+            
+            # Re-map descriptions to check for missing indices
+            # This ensures we get the exact text shown to the user
             for idx in [0, 1]:
                 val = st.session_state.event_order[idx]
-                for key, value in all_scores[idx].items():
-                    if value is None:
-                        motive_name = key.replace("_Promotion", " (Goal)").replace("_Prevention", " (Avoidance)")
-                        missing_fields.append(f"{val} Event: {motive_name}")
+                for name, pro, prev in MOTIVES_GOALS:
+                    if all_scores[idx][f"{val}_{name}_Promotion"] is None:
+                        missing_descriptions.append(f"{val} Event: '{pro}'")
+                    if all_scores[idx][f"{val}_{name}_Prevention"] is None:
+                        missing_descriptions.append(f"{val} Event: '{prev}'")
 
-            if missing_fields:
-                # Force a "flicker" by changing the element's identity
-                # We use time.time() to ensure the key is different every single click
-                flicker_key = str(time.time())
-                
+            if missing_descriptions:
                 st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing. You cannot proceed until all items are rated.")
                 
-                # Wrapping the list in a container with a unique key forces re-render
-                with st.container(key=flicker_key):
-                    st.markdown("##### Please provide a rating for the following:")
-                    for field in missing_fields:
-                        st.write(f"- {field}")
-                
-                # Stop further execution
-                st.stop() 
+                st.markdown("Please provide a rating for the following specific items:")
+                for desc in missing_descriptions:
+                    st.write(f"- {desc}")
             else:
-                # Proceed to save
+                # Save and proceed
                 st.session_state["motive_scores_0"] = all_scores[0]
                 st.session_state["motive_scores_1"] = all_scores[1]
-                with st.spinner("Saving all data..."):
+                
+                with st.spinner("Saving data..."):
                     save_to_firestore()
                     st.session_state.page = "finish"
-                    st.rerun()      
+                    st.rerun()
                     
 def save_to_firestore():
     data = {
