@@ -336,9 +336,6 @@ def show_motives():
                 else:
                     st.error("⚠️ Some ratings are missing. Please provide missing ratings for both events.")
                 
-                st.write("Please provide a rating for the following:")
-                for field in missing_fields:
-                    st.write(f"- {field}")
             else:
                 # Reset fail count on success and proceed
                 st.session_state.fail_count = 0
