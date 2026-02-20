@@ -270,10 +270,6 @@ def show_motives():
         height=0,
     )
     
-    # 2. Immediate visual anchor (just like the old app)
-    st.header("Phase 2: Motive Ratings")
-    st.info("Please rate the importance of the motives below.")
-    
     st.header(f"Phase 2: Motive Ratings ({val} Event)")
     
     # This info box acts as a visual anchor at the top
