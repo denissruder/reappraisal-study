@@ -272,28 +272,28 @@ def show_motives():
     scores = {}
 
     with st.form(f"situation_rating_form_{idx}"):
-            for name, pro, prev in MOTIVES_GOALS:
-                col1, col2 = st.columns(2) 
-                with col1:
-                    # Removed "Goal:" prefix to match tester style
-                    scores[f"{name}_Promotion"] = st.radio(
-                        f"{pro}", 
-                        options=RADIO_OPTIONS, 
-                        index=4, 
-                        horizontal=True, 
-                        key=f"sit_{name}_pro_{idx}"
-                    )
-                with col2:
-                    # Removed "Avoidance:" prefix to match tester style
-                    scores[f"{name}_Prevention"] = st.radio(
-                        f"{prev}", 
-                        options=RADIO_OPTIONS, 
-                        index=4, 
-                        horizontal=True, 
-                        key=f"sit_{name}_prev_{idx}"
-                    )
-                # This horizontal rule is what the CSS in your file targets for spacing
-                st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+        for name, pro, prev in MOTIVES_GOALS:
+            col1, col2 = st.columns(2) 
+            with col1:
+                # Removed "Goal:" prefix to match tester style
+                scores[f"{name}_Promotion"] = st.radio(
+                    f"{pro}", 
+                    options=RADIO_OPTIONS, 
+                    index=4, 
+                    horizontal=True, 
+                    key=f"sit_{name}_pro_{idx}"
+                )
+            with col2:
+                # Removed "Avoidance:" prefix to match tester style
+                scores[f"{name}_Prevention"] = st.radio(
+                    f"{prev}", 
+                    options=RADIO_OPTIONS, 
+                    index=4, 
+                    horizontal=True, 
+                    key=f"sit_{name}_prev_{idx}"
+                )
+            # This horizontal rule is what the CSS in your file targets for spacing
+            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
         # 4. Replicate the routing logic
         submit_label = "Next Event" if idx == 0 else "Submit and Finish"
