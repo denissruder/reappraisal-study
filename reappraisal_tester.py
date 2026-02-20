@@ -194,8 +194,6 @@ def show_consent():
     
     st.markdown("<hr style='margin: 0x 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
     
-    st.markdown("### Project Title: Cognitive Appraisal and Motive Attribution Study")
-
     st.write("""
     **Introduction and Purpose** You are invited to participate in a research study exploring how individuals perceive and attribute motives to personal life events.
     
