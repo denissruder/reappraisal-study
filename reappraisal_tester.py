@@ -262,11 +262,16 @@ def show_review():
             st.session_state.page = "motives"
         st.rerun()
 
+Here is the corrected function. The issue in your code was that the dictionary keys used during creation (f"{name}_Promotion") did not match the keys used during validation (f"{val}_{name}_Promotion"), which causes a KeyError.
+
+I have standardized them to use the simple {name}_Promotion format for both.
+Python
+
 def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     
-    st.header(f"📊 Motive Ratings ({val} Event)")
+    st.header(f"📊 Motive Ratings")
     
     st.markdown("Now, please review your narratives and rate the motives for both events below.")
     
@@ -281,8 +286,10 @@ def show_motives():
             val = st.session_state.event_order[idx]
             narrative = st.session_state[f"final_narrative_{idx}"]
             
+            st.markdown(f"### {val} Event")
+            
             # Narrative in a collapsed expander to keep the view compact
-            with st.expander(f"{val} event narrative", expanded=False):
+            with st.expander(f"View {val.lower()} event narrative", expanded=False):
                 st.write(narrative)
             
             event_scores = {}
@@ -313,18 +320,17 @@ def show_motives():
         if st.form_submit_button("Submit All and Finish Study", type="primary"):
             missing_descriptions = []
             
-            # Re-map descriptions to check for missing indices
-            # This ensures we get the exact text shown to the user
             for idx in [0, 1]:
                 val = st.session_state.event_order[idx]
                 for name, pro, prev in MOTIVES_GOALS:
-                    if all_scores[idx][f"{val}_{name}_Promotion"] is None:
+                    # FIX: Match the key structure used in event_scores exactly
+                    if all_scores[idx][f"{name}_Promotion"] is None:
                         missing_descriptions.append(f"{val} Event: '{pro}'")
-                    if all_scores[idx][f"{val}_{name}_Prevention"] is None:
+                    if all_scores[idx][f"{name}_Prevention"] is None:
                         missing_descriptions.append(f"{val} Event: '{prev}'")
 
             if missing_descriptions:
-                st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing. You cannot proceed until all items are rated.")
+                st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing.")
                 
                 st.markdown("Please provide a rating for the following specific items:")
                 for desc in missing_descriptions:
