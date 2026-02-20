@@ -301,6 +301,7 @@ def show_review():
 def show_motives():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
+    error_placeholder = st.empty()
     
     st.header(f"📊 Motive Ratings")
     
@@ -361,12 +362,15 @@ def show_motives():
                         missing_descriptions.append(f"{val} Event: '{prev}'")
 
             if missing_descriptions:
-                st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing.")
-                
-                st.markdown("Please provide a rating for the following specific items:")
-                for desc in missing_descriptions:
-                    st.write(f"- {desc}")
+                with error_placeholder.container():
+                    st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing.")
+                    
+                    st.markdown("Please provide a rating for the following specific items:")
+                    for desc in missing_descriptions:
+                        st.write(f"- {desc}")
             else:
+                error_placeholder.empty()
+                
                 # Save and proceed
                 st.session_state["motive_scores_0"] = all_scores[0]
                 st.session_state["motive_scores_1"] = all_scores[1]
