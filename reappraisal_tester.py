@@ -281,87 +281,79 @@ def show_review():
         st.rerun()
 
 def show_motives():
+    # Use the persistent session state index to determine which event to show
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
+    narrative = st.session_state[f"final_narrative_{idx}"]
     
-    st.header(f"📊 Motive Ratings")
-    
-    st.markdown("Now, please review your narratives and rate the motives for both events below.")
+    st.header(f"📊 Motive Ratings ({val} Event)")
+    st.markdown("Please review your narrative and rate the motives for this event below.")
     
     RADIO_OPTIONS = list(range(1, 10))
-    all_scores = {}
+    event_scores = {}
 
-    # We use a single form for both events to save data all at once
-    with st.form("master_motive_form"):
+    with st.form(f"motive_form_{idx}"):
+        # Narrative reference
+        with st.expander(f"View {val.lower()} event narrative", expanded=False):
+            st.write(narrative)
         
-        # Loop through both events (Positive and Negative)
-        for idx in [0, 1]:
-            val = st.session_state.event_order[idx]
-            narrative = st.session_state[f"final_narrative_{idx}"]
-            
-            st.markdown(f"### {val} Event")
-            
-            # Narrative in a collapsed expander to keep the view compact
-            with st.expander(f"View {val.lower()} event narrative", expanded=False):
-                st.write(narrative)
-            
-            event_scores = {}
-            for name, pro, prev in MOTIVES_GOALS:
-                col1, col2 = st.columns(2)
-                with col1:
-                    event_scores[f"{name}_Promotion"] = st.radio(
-                        f"{pro}", 
-                        options=RADIO_OPTIONS, 
-                        index=None, 
-                        horizontal=True, 
-                        key=f"sit_{name}_pro_{idx}"
-                    )
-                with col2:
-                    event_scores[f"{name}_Prevention"] = st.radio(
-                        f"{prev}", 
-                        options=RADIO_OPTIONS, 
-                        index=None, 
-                        horizontal=True, 
-                        key=f"sit_{name}_prev_{idx}"
-                    )
-                # Compact horizontal rule
-                st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
-            
-            all_scores[idx] = event_scores
-            
+        # Motive rating grid
+        for name, pro, prev in MOTIVES_GOALS:
+            col1, col2 = st.columns(2)
+            with col1:
+                event_scores[f"{name}_Promotion"] = st.radio(
+                    f"{pro}", 
+                    options=RADIO_OPTIONS, 
+                    index=None, # Mandatory selection
+                    horizontal=True, 
+                    key=f"sit_{name}_pro_{idx}"
+                )
+            with col2:
+                event_scores[f"{name}_Prevention"] = st.radio(
+                    f"{prev}", 
+                    options=RADIO_OPTIONS, 
+                    index=None, 
+                    horizontal=True, 
+                    key=f"sit_{name}_prev_{idx}"
+                )
+            st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+        
         error_placeholder = st.empty()
         
-        # Validation Logic using specific motive descriptions
-        if st.form_submit_button("Submit All and Finish Study", type="primary"):
+        # Logic for button label and progression
+        submit_label = "Next Event" if idx == 0 else "Submit and Finish Study"
+        
+        if st.form_submit_button(submit_label, type="primary"):
             missing_descriptions = []
             
-            for idx in [0, 1]:
-                val = st.session_state.event_order[idx]
-                for name, pro, prev in MOTIVES_GOALS:
-                    # FIX: Match the key structure used in event_scores exactly
-                    if all_scores[idx][f"{name}_Promotion"] is None:
-                        missing_descriptions.append(f"{val} Event: '{pro}'")
-                    if all_scores[idx][f"{name}_Prevention"] is None:
-                        missing_descriptions.append(f"{val} Event: '{prev}'")
+            # Validation check for the current event only
+            for name, pro, prev in MOTIVES_GOALS:
+                if event_scores[f"{name}_Promotion"] is None:
+                    missing_descriptions.append(f"'{pro}'")
+                if event_scores[f"{name}_Prevention"] is None:
+                    missing_descriptions.append(f"'{prev}'")
 
             if missing_descriptions:
                 with error_placeholder.container():
-                    st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing.")
-                    
-                    st.markdown("Please provide a rating for the following specific items:")
+                    st.error(f"⚠️ Some ratings are missing. Please ensure every row has a selection.")
                     for desc in missing_descriptions:
                         st.write(f"- {desc}")
             else:
                 error_placeholder.empty()
                 
-                # Save and proceed
-                st.session_state["motive_scores_0"] = all_scores[0]
-                st.session_state["motive_scores_1"] = all_scores[1]
+                # Store scores for the current event
+                st.session_state[f"motive_scores_{idx}"] = event_scores
                 
-                with st.spinner("Saving data..."):
-                    save_to_firestore()
-                    st.session_state.page = "finish"
+                if idx == 0:
+                    # Move to the second event
+                    st.session_state.current_idx = 1
                     st.rerun()
+                else:
+                    # Both events done, save and finish
+                    with st.spinner("Saving data..."):
+                        save_to_firestore()
+                        st.session_state.page = "finish"
+                        st.rerun()
                     
 def save_to_firestore():
     data = {
