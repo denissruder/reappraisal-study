@@ -295,7 +295,7 @@ def show_motives():
                     key=f"sit_{name}_prev_{idx}"
                 )
             # This horizontal rule is what the CSS in your file targets for spacing
-            st.markdown("<hr style='margin: -10px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
         # 4. Replicate the routing logic
         submit_label = "Next Event" if idx == 0 else "Submit and Finish"
