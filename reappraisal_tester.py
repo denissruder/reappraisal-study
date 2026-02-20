@@ -281,11 +281,8 @@ def show_motives():
             val = st.session_state.event_order[idx]
             narrative = st.session_state[f"final_narrative_{idx}"]
             
-            # Section Header
-            st.markdown(f"{idx + 1}. The {val} Event")
-            
             # Narrative in a collapsed expander to keep the view compact
-            with st.expander(f"View your {val} event narrative", expanded=False):
+            with st.expander(f"{val} event narrative", expanded=False):
                 st.write(narrative)
             
             event_scores = {}
