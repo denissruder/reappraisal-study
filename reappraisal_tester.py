@@ -293,11 +293,11 @@ def show_motives():
     event_scores = {}
 
     with st.form(f"motive_form_{idx}"):
-        st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
         # Narrative reference
         with st.expander(f"View {val.lower()} event narrative", expanded=False):
             st.write(narrative)
-        
+            
+        st.markdown("<div style='margin-top: -10px;'></div>", unsafe_allow_html=True)
         # Motive rating grid
         for name, pro, prev in MOTIVES_GOALS:
             col1, col2 = st.columns(2)
