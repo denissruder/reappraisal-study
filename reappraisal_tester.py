@@ -265,10 +265,10 @@ def show_motives():
     # In the old app, this was the primary way to force the view to the top
     st.header(f"📊 Motive Ratings ({val} Event)")
     
-    st.markdown(f"Please rate the importance of the following motives to you based on the event you described.")
-    
-    # We place the narrative inside the info box exactly like the old app's prompt
-    st.info(f"{narrative_text}")
+    st.info(f"Please rate the importance of the following motives to you based on the event you described.")
+
+    with st.expander("{val} Event Narrative", expanded=False): # Changed to False to save space
+        st.write(narrative_text)
     
     RADIO_OPTIONS = list(range(1, 10)) 
     scores = {}
@@ -295,7 +295,7 @@ def show_motives():
                     key=f"sit_{name}_prev_{idx}"
                 )
             # This horizontal rule is what the CSS in your file targets for spacing
-            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin: 0px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
         # 4. Replicate the routing logic
         submit_label = "Next Event" if idx == 0 else "Submit and Finish"
