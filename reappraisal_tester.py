@@ -297,7 +297,6 @@ def show_motives():
         with st.expander(f"View {val.lower()} event narrative", expanded=False):
             st.write(narrative)
             
-        st.markdown("<div style='margin-top: 0px;'></div>", unsafe_allow_html=True)
         # Motive rating grid
         for name, pro, prev in MOTIVES_GOALS:
             col1, col2 = st.columns(2)
