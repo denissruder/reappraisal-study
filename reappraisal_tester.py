@@ -230,8 +230,9 @@ def show_chat():
 def show_review():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
+    
     st.header("📝 Narrative Review")
-    st.markdown("Please review the narrative below and edit it to ensure it captures your experience in your own words.")
+    st.info("Please review the narrative below and edit it to ensure it captures your experience in your own words.")
     
     narrative = st.text_area("Event Narrative:", value=st.session_state[f"raw_narrative_{idx}"], height=250)
     
@@ -254,9 +255,7 @@ def show_review():
             st.session_state.page = "motives"
         st.rerun()
 
-def show_motives():
-    st.markdown("<div id='top'></div>", unsafe_allow_html=True)
-    
+def show_motives():   
     # 1. Force the page to the top by rendering the header and info immediately
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
