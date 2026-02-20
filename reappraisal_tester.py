@@ -209,7 +209,7 @@ def show_chat():
     val = st.session_state.event_order[idx]
     
     st.header(f"Phase 1: Describe your {val} Event")
-    st.info(f"Please respond to the assistant below regarding your **{val.lower()}** event.")
+    st.markdown(f"Please respond to the assistant below regarding your **{val.lower()}** event.")
 
     if f"msgs_{idx}" not in st.session_state:
         # Start with the first core question as mandated by the prompt
@@ -263,59 +263,68 @@ def show_review():
         st.rerun()
 
 def show_motives():
-    idx = st.session_state.current_idx
-    val = st.session_state.event_order[idx]
-    narrative_text = st.session_state[f"final_narrative_{idx}"]
-
-    # In the old app, this was the primary way to force the view to the top
     st.header(f"📊 Motive Ratings ({val} Event)")
     
-    st.info(f"Please rate the importance of the following motives to you based on the event you described.")
-
-    with st.expander("Event Narrative", expanded=False):
-        st.write(narrative_text)
+    st.markdown("Now, please review your narratives and rate the motives for both events below.")
     
-    RADIO_OPTIONS = list(range(1, 10)) 
-    scores = {}
+    RADIO_OPTIONS = list(range(1, 10))
+    all_scores = {}
 
-    with st.form(f"situation_rating_form_{idx}"):
-        for name, pro, prev in MOTIVES_GOALS:
-            col1, col2 = st.columns(2) 
-            with col1:
-                # Removed "Goal:" prefix to match tester style
-                scores[f"{name}_Promotion"] = st.radio(
-                    f"{pro}", 
-                    options=RADIO_OPTIONS, 
-                    index=4, 
-                    horizontal=True, 
-                    key=f"sit_{name}_pro_{idx}"
-                )
-            with col2:
-                # Removed "Avoidance:" prefix to match tester style
-                scores[f"{name}_Prevention"] = st.radio(
-                    f"{prev}", 
-                    options=RADIO_OPTIONS, 
-                    index=4, 
-                    horizontal=True, 
-                    key=f"sit_{name}_prev_{idx}"
-                )
-            # This horizontal rule is what the CSS in your file targets for spacing
-            st.markdown("<hr style='margin: 0px 0 5px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+    # We use a single form for both events to save data all at once
+    with st.form("master_motive_form"):
+        
+        # Loop through both events (Positive and Negative)
+        for idx in [0, 1]:
+            val = st.session_state.event_order[idx]
+            narrative = st.session_state[f"final_narrative_{idx}"]
             
-        # 4. Replicate the routing logic
-        submit_label = "Next Event" if idx == 0 else "Submit and Finish"
-        if st.form_submit_button(submit_label, type="primary"):
-            st.session_state[f"motive_scores_{idx}"] = scores
+            # Section Header
+            st.markdown(f"## {idx + 1}. The {val} Event")
             
+            # Narrative in a collapsed expander to keep the view compact
+            with st.expander(f"View your {val} narrative", expanded=False):
+                st.write(narrative)
+            
+            st.markdown("#### Rate the motives for this event:")
+            
+            event_scores = {}
+            for name, pro, prev in MOTIVES_GOALS:
+                col1, col2 = st.columns(2)
+                with col1:
+                    event_scores[f"{name}_Promotion"] = st.radio(
+                        f"{pro}", 
+                        options=RADIO_OPTIONS, 
+                        index=4, 
+                        horizontal=True, 
+                        key=f"sit_{name}_pro_{idx}"
+                    )
+                with col2:
+                    event_scores[f"{name}_Prevention"] = st.radio(
+                        f"{prev}", 
+                        options=RADIO_OPTIONS, 
+                        index=4, 
+                        horizontal=True, 
+                        key=f"sit_{name}_prev_{idx}"
+                    )
+                # Compact horizontal rule
+                st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+            
+            all_scores[idx] = event_scores
+            
+            # Add extra space between the two events
             if idx == 0:
-                st.session_state.current_idx = 1
-                # The rerun starts the script over, hitting the header first
-                st.rerun() 
-            else:
-                with st.spinner("Saving your responses..."):
-                    save_to_firestore()
-                    st.session_state.page = 'finish'
-                    st.rerun()
+                st.markdown("<br><br>", unsafe_allow_html=True)
+
+        # 2. Final Submit Button
+        if st.form_submit_button("Submit All and Finish Study", type="primary"):
+            # Save both sets of scores to session state
+            st.session_state["motive_scores_0"] = all_scores[0]
+            st.session_state["motive_scores_1"] = all_scores[1]
+            
+            with st.spinner("Saving all data..."):
+                save_to_firestore()
+                st.session_state.page = "finish"
+                st.rerun()
                 
 def save_to_firestore():
     data = {
