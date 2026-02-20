@@ -20,6 +20,9 @@ st.set_page_config(page_title="Psychological Study", layout="centered")
 if 'page' not in st.session_state:
     st.session_state.page = 'consent'
 
+if 'fail_count' not in st.session_state:
+    st.session_state.fail_count = 0
+    
 # Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
 <style>
@@ -321,10 +324,24 @@ def show_motives():
                         # Clean up the key name for the error message
                         motive_name = key.replace("_Promotion", " (Goal)").replace("_Prevention", " (Avoidance)")
                         missing_fields.append(f"{val} Event: {motive_name}")
-
+                    
             if missing_fields:
-                st.error("⚠️ Some ratings are missing. Please provide missing ratings for both events.")
+                # Increment the fail count
+                st.session_state.fail_count += 1
+                
+                # Dynamic message based on attempt number
+                if st.session_state.fail_count >= 2:
+                    st.error("### 🚨 Still Missing Ratings!")
+                    st.warning("Please ensure every single row has a selection before continuing. You cannot proceed until all items are rated.")
+                else:
+                    st.error("⚠️ Some ratings are missing. Please provide missing ratings for both events.")
+                
+                st.write("Please provide a rating for the following:")
+                for field in missing_fields:
+                    st.write(f"- {field}")
             else:
+                # Reset fail count on success and proceed
+                st.session_state.fail_count = 0
                 st.session_state["motive_scores_0"] = all_scores[0]
                 st.session_state["motive_scores_1"] = all_scores[1]
                 
@@ -332,7 +349,7 @@ def show_motives():
                     save_to_firestore()
                     st.session_state.page = "finish"
                     st.rerun()
-                
+                    
 def save_to_firestore():
     data = {
         "prolific_id": st.session_state.prolific_id,
