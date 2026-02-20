@@ -19,9 +19,6 @@ st.set_page_config(page_title="Psychological Study", layout="centered")
 
 if 'page' not in st.session_state:
     st.session_state.page = 'consent'
-
-if 'fail_count' not in st.session_state:
-    st.session_state.fail_count = 0
     
 # Inject minimal CSS for a cleaner, tighter look
 st.markdown("""
@@ -311,41 +308,39 @@ def show_motives():
                 st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
             
             all_scores[idx] = event_scores
-            
-        # Submit and Validation Logic
+        
         if st.form_submit_button("Submit All and Finish Study", type="primary"):
             missing_fields = []
-            
-            # Check every motive for both events
             for idx in [0, 1]:
                 val = st.session_state.event_order[idx]
                 for key, value in all_scores[idx].items():
                     if value is None:
-                        # Clean up the key name for the error message
                         motive_name = key.replace("_Promotion", " (Goal)").replace("_Prevention", " (Avoidance)")
                         missing_fields.append(f"{val} Event: {motive_name}")
-                    
+
             if missing_fields:
-                # Increment the fail count
-                st.session_state.fail_count += 1
+                # Force a "flicker" by changing the element's identity
+                # We use time.time() to ensure the key is different every single click
+                flicker_key = str(time.time())
                 
-                # Dynamic message based on attempt number
-                if st.session_state.fail_count >= 2:
-                    st.error("🚨 Still Missing Ratings!")
-                    st.warning("Please ensure every single row has a selection before continuing. You cannot proceed until all items are rated.")
-                else:
-                    st.error("⚠️ Some ratings are missing. Please provide missing ratings for both events.")
+                st.error(f"⚠️ Some ratings are missing. Please ensure every single row has a selection before continuing. You cannot proceed until all items are rated.")
                 
+                # Wrapping the list in a container with a unique key forces re-render
+                with st.container(key=flicker_key):
+                    st.markdown("##### Please provide a rating for the following:")
+                    for field in missing_fields:
+                        st.write(f"- {field}")
+                
+                # Stop further execution
+                st.stop() 
             else:
-                # Reset fail count on success and proceed
-                st.session_state.fail_count = 0
+                # Proceed to save
                 st.session_state["motive_scores_0"] = all_scores[0]
                 st.session_state["motive_scores_1"] = all_scores[1]
-                
                 with st.spinner("Saving all data..."):
                     save_to_firestore()
                     st.session_state.page = "finish"
-                    st.rerun()
+                    st.rerun()      
                     
 def save_to_firestore():
     data = {
