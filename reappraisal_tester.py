@@ -293,6 +293,7 @@ def show_motives():
     event_scores = {}
 
     with st.form(f"motive_form_{idx}"):
+        st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
         # Narrative reference
         with st.expander(f"View {val.lower()} event narrative", expanded=False):
             st.write(narrative)
