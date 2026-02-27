@@ -231,6 +231,46 @@ Using the items presented below, please tell us how important were the following
 """
 submit_button = "Submit Ratings"
 
+[[motives.dimensions]]
+name = "Health"
+promotion = "To be energetic and fit"
+prevention = "To avoid illness and injury"
+
+[[motives.dimensions]]
+name = "Wealth"
+promotion = "To be well off"
+prevention = "To avoid losing out"
+
+[[motives.dimensions]]
+name = "Relatedness"
+promotion = "To be liked and loved"
+prevention = "To avoid rejection and loneliness"
+
+[[motives.dimensions]]
+name = "Status"
+promotion = "To lead and be respected"
+prevention = "To avoid shame and disrespect"
+
+[[motives.dimensions]]
+name = "Purpose"
+promotion = "To serve something beyond myself and make a difference"
+prevention = "To avoid wasting my life or meaningless pursuits"
+
+[[motives.dimensions]]
+name = "Competence"
+promotion = "To get things done"
+prevention = "To avoid mistakes"
+
+[[motives.dimensions]]
+name = "Growth"
+promotion = "To experience and learn"
+prevention = "To avoid boredom and decline"
+
+[[motives.dimensions]]
+name = "Control"
+promotion = "To be free and authentic"
+prevention = "To avoid losing control"
+
 [exit]
 header = "✅ Study Complete"
 message = "Your responses have been saved."
