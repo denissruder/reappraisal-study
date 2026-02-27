@@ -72,7 +72,7 @@ other = "Is there anything else that was important to you in this situation?"
 [chat.interviewer]
 role = "You are a qualitative researcher conducting a semi-structured interview to understand how the respondent experienced an emotional event."
 
-goal = "Your goal is to gather structured answers to the following 8 {questions} by reaching a 'coverage_score' of >= 6 for each."
+instruction = "Your goal is to gather structured answers to the following 8 {questions} by reaching a 'coverage_score' of >= 6 for each."
 
 rules = """
 - Ask each question one at a time.
@@ -105,7 +105,7 @@ chain_of_verification = """
 [chat.synthesizer]
 role = "You are a qualitative researcher writing an accurate and compelling narrative summaries of human experiences with emotional events."
 
-goal = "Your goal is to extract answers for each of the core questions from the conversation history and write a coherent, comprehensive narrative summary."
+instruction = "Your goal is to extract answers for each of the core questions from the conversation history and write a coherent, comprehensive narrative summary."
 
 rules = """
 - Use only information explicitly stated by the Human
