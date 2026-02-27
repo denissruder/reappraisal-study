@@ -1,5 +1,5 @@
 [study]
-model_name = "gemini-2.0-flash"
+model_name = "gemini-2.5-flash"
 prolific_completion_code = "PROLIFIC_CODE_HERE"
 
 [interface]
