@@ -4,3 +4,4 @@ google-cloud-firestore
 langchain
 langchain-community
 langchain-core
+toml
