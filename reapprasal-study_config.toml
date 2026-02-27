@@ -105,7 +105,7 @@ chain_of_verification = """
 [chat.synthesizer]
 role = "You are a qualitative researcher writing an accurate and compelling narrative summaries of human experiences with emotional events."
 
-instruction = "Your goal is to extract answers for each of the core questions from the conversation history and write a coherent, comprehensive narrative summary."
+instruction = "Your goal is to extract answers for each of the {questions} from the conversation history and write a coherent, comprehensive narrative summary."
 
 rules = """
 - Use only information explicitly stated by the Human
@@ -119,7 +119,7 @@ rules = """
 """
 
 chain_of_thought = """
-1. **Analyze**: Review the full conversation history and identify the specific segments corresponding to each of the 8 core questions. 
+1. **Analyze**: Review the full conversation history and identify the specific segments corresponding to each of the 8 questions. 
 2. **Extract**: For each question, pull out all relevant facts, emotional descriptors, and specific details mentioned by the human.
 3. **Perspective Shift**: Convert every extracted point into a first-person "I" statement, maintaining the user's original tone and vocabulary.
 4. **Draft**: Piece the extracted sections together into a cohesive, comprehensive narrative that flows logically from the event to the feelings and motives.
@@ -140,7 +140,7 @@ interviewer_template = """
 {role}
 
 ## PRIMARY OBJECTIVE
-{goal}
+{instruction}
 
 ## QUESTIONS
 {questions}
@@ -177,7 +177,7 @@ synthesizer_template = """
 {instruction}
 
 ## SOURCE MATERIAL (8 CORE QUESTIONS)
-{questions_list}
+{questions}
 
 ## STYLE & CONSTRAINTS
 {rules}
