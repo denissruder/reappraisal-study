@@ -1,0 +1,237 @@
+[study]
+model_name = "gemini-2.0-flash"
+prolific_completion_code = "PROLIFIC_CODE_HERE"
+
+[interface]
+browser_title = "Psychological Study"
+loading_state = "Processing..."
+
+[consent]
+header = "📄 Consent Form"
+body = """
+**Study overview**
+
+The purpose of the study is to learn more about how large language models can be used to build emotionally supportive digital interactive systems.
+
+You will be asked to fill tell a chatbot about a recent emotional event, evaluate its responses and fill in a questionnaire about motivation.
+
+The study will take about 15 minutes.
+
+This project has been reviewed and approved by the Research Ethics Committee at the University of Tartu, Estonia (1T-17).
+
+**Eligibility** 
+To be eligible for this study, participants must be over the age of 18 years and be a native English speaker.
+As the study involves entering text, participants are asked to use a computer with a convenient keyboard.
+
+**Compensation**
+Upon successful completion of the study, participants will receive £2.50 according to the Prolific Academic payment terms.
+Compensation can be withheld from participants who fail to follow instructions as evidenced by their text responses.
+
+**Risks** 
+This study poses no physical risks. Recalling a distressing event can make you experience negative emotions. If you do not feel comfortable, you should decline this study. You can also stop the study at any point. 
+
+**Confidentiality** 
+The data recorded in this study includes your demographic info provided by Prolific, your questionnaire responses, and all text you and the chatbot write during the study.
+We do not collect your personal information (your name, email). Your unique Prolific ID will be deleted from our records by December 2026.
+Your interactions with the chatbot can become visible to other participants in this study. They can also be published alongside your questionnaire responses in a public data repository for the benefit of other researchers. To ensure privacy, please do not include names, specific locations, or any other details that could identify you or anyone else in the text boxes.
+This study uses Google Gemini large language model. The text you write is sent to Google servers to generate responses. Google states that they do not use your data to train their AI models. If you do not wish to send your data to Google, you should decline this study.
+The data we collect in this study will be processed according to the standards of the European data protection law, known as the General Data Protection Regulation (GDPR). 
+By December 2026, the data you provide will be anonymized by removing Prolific IDs and archived indefinitely at the Institute of Psychology, University of Tartu, Estonia and a selected data repository. 
+
+**Contact** 
+If you have questions about this study, you can email andero.uusberg@ut.ee. If you have questions about your rights, please contact the Research Ethics Committee at the University of Tartu (eetikakomitee@ut.ee). 
+If you wish to save a copy of this consent form, please do so right now.
+By proceeding with this study, you confirm that you have read and understood the above information and you agree to participate in this study.
+"""
+confirm_button = "Agree and Start Study"
+
+[chat]
+header = "Describe your {val} Event"
+body = """
+In this study, you will be asked to talk to a chatbot about two events … and fill in a questionnaire. The chatbot will ask follow-up questions. 
+
+Please think of a recent situation that made you feel at least some negative/positive emotions. 
+
+The situation should be fairly recent, from the past week or so. It is helpful if it has come to an end by now. 
+
+The situation should be emotionally primarily negative/positive although it might have included a mixture of different feelings. It does not have to be the most intense positive/negative event from the past week or so, although it can be. Make sure it is an event you remember well and that you feel comfortable talking about. Also, remember that the story you write can be read by other participants.
+"""
+input_placeholder = "Type your response..."
+
+[chat.questions]
+event = "What happened?"
+feeling = "How did the situation leave you feeling?"
+goal = "What were you trying to do? What did you want or need in this situation?"
+congruence = "In what ways did this situation help or hurt you?"
+relevance = "How much did this situation matter to you? Why?"
+accountability = "Who or what did you feel was most responsible for this situation?"
+control = "Did you feel like you were in control in this situation? Why?"
+other = "Is there anything else that was important to you in this situation?"
+
+
+[chat.interviewer]
+role = "You are a qualitative researcher conducting a semi-structured interview to understand how the respondent experienced an emotional event."
+
+goal = "Your goal is to gather structured answers to the following 8 {questions} by reaching a 'coverage_score' of >= 6 for each."
+
+rules = """
+- Ask each question one at a time.
+- Use empathetic and friendly language while maintaining a descriptive tone. 
+- Ensure you get an answer to each question before moving to the next question.
+- If you are unsure what the human meant, ask again.
+- Don't thank the user after every response.
+- Never suggest answers for the human.
+- You can rephrase the questions to fit into the conversational flow. 
+"""
+
+chain_of_thought = """
+1. **Analyze**: Review the full Q&A history and the current coverage scores to identify what information is still missing.
+2. **Score**: Assign a 'coverage_score' (0-10) to each question based on detail and clarity.
+    * **Saturation Rule**: The "Event" question must reach a score of >= 6 before prioritizing other questions. 
+    * **Implicit Credit**: If a question was answered earlier in the conversation, update its score now.
+3. **Evaluate**: 
+    * Score >= 6: Question is 'rich and complete'.
+    * Score < 6: Question is 'unanswered, unclear, or ambiguous'.
+4. **Plan**: Identify which unanswered question is most natural to ask next to maintain conversational flow. 
+"""
+
+chain_of_verification = """
+1. **Evidence Check**: For every score > 0, find the specific evidence in the transcript. If none exists, reset to 0.
+2. **Implicit Check**: Ensure the proposed question hasn't already been addressed in a previous turn.
+3. **Bias Check**: Verify the response does not suggest answers, provide examples, or influence the user.
+"""
+
+
+[chat.synthesizer]
+role = "You are a qualitative researcher writing an accurate and compelling narrative summaries of human experiences with emotional events."
+
+goal = "Your goal is to extract answers for each of the core questions from the conversation history and write a coherent, comprehensive narrative summary."
+
+rules = """
+- Use only information explicitly stated by the Human
+- Do not infer, generalize, reinterpret, or add any detail not present in the conversation.
+- If relevant details appear in earlier turns, include them under the matching question.
+- For each question, preserve as many relevant details as possible.
+- Express each extracted answer from the Human's perspective in first person.
+- Be comprehensive rather than brief. Do not over-compress into short phrases.
+- Prefer the Human's original wording and nuance. Make edits for readability and clarity.
+- Remember: extract faithfully from the messages only.
+"""
+
+chain_of_thought = """
+1. **Analyze**: Review the full conversation history and identify the specific segments corresponding to each of the 8 core questions. 
+2. **Extract**: For each question, pull out all relevant facts, emotional descriptors, and specific details mentioned by the human.
+3. **Perspective Shift**: Convert every extracted point into a first-person "I" statement, maintaining the user's original tone and vocabulary.
+4. **Draft**: Piece the extracted sections together into a cohesive, comprehensive narrative that flows logically from the event to the feelings and motives.
+5. **Polishing**: Edit for clarity and readability without changing the underlying meaning or softening the emotions.
+"""
+
+chain_of_verification = """
+1. **Source Check**: For every sentence in the final narrative, verify: "Did the Human explicitly say this?" If it is an inference, delete it.
+2. **Detail Check**: Compare the draft against the raw history to ensure no nuance or specific detail was lost in compression.
+3. **Voice Check**: Ensure the entire narrative is consistently in the first person and sounds like the user, not the AI.
+4. **Interpretation Check**: Verify that no interpretation, analysis, or emotional softening was added to the description.
+"""
+
+[chat.prompts]
+
+interviewer_template = """
+## ROLE
+{role}
+
+## PRIMARY OBJECTIVE
+{goal}
+
+## QUESTIONS
+{questions}
+
+## CURRENT SATURATION STATE (0-10)
+Below is the current coverage of the 8 core questions based on previous turns:
+{coverage_scores}
+
+## STYLE & CONSTRAINTS
+{rules}
+
+## INTERNAL REASONING PROCESS
+Follow these steps strictly before providing your response:
+
+### PHASE 1: CHAIN-OF-THOUGHT (Logic & Planning)
+{chain_of_thought}
+
+### PHASE 2: CHAIN-OF-VERIFICATION (Evidence & Bias Check)
+{chain_of_verification}
+
+## CONVERSATION HISTORY
+{history}
+Human: {input}
+
+## RESPONSE OUTPUT
+Perform your reasoning and verification, then update the saturation state and provide your conversational response.
+"""
+
+synthesizer_template = """
+## ROLE
+{role}
+
+## PRIMARY OBJECTIVE
+{instruction}
+
+## SOURCE MATERIAL (8 CORE QUESTIONS)
+{questions_list}
+
+## STYLE & CONSTRAINTS
+{rules}
+
+## INTERNAL REASONING PROCESS
+Follow these steps strictly to ensure research-grade accuracy:
+
+### PHASE 1: CHAIN-OF-THOUGHT (Data Extraction & Organization)
+{chain_of_thought}
+
+### PHASE 2: CHAIN-OF-VERIFICATION (Faithfulness Check)
+{chain_of_verification}
+
+## FULL CONVERSATION LOG
+{history}
+
+## FINAL NARRATIVE OUTPUT
+Based on your reasoning and verification, provide the cohesive first-person narrative below.
+"""
+
+[review]
+header = "📝 Review Your Story"
+body = """
+Thank you! 
+
+Below is a summary of your event I have written based on our conversation. My goal was to write a clear story that would convey what happened to you and how you experienced it.
+
+Please take a moment to read the summary and respond to a few questions about how well it captures your experience. 
+
+Once you've done rating, you can make any edits that you wish.
+"""
+
+# Feedback ratings 
+rating_1 = "How well do you feel this story captures your experience?"
+rating_2 = "To what extent this story sounds like you yourself would tell it?"
+rating_3 = "To what extent does this story leave out important aspects of your experience?"
+rating_4 = "To what extent does this story confabulates aspects that you did not actually experience?"
+feedback = "Is there anything you'd like to tell us about how well this summary captures your experience of this event?"
+
+confirm_button = "Confirm and Next"
+
+[motives]
+header = "Final Phase: Motive Appraisals"
+
+body = """
+You will now see the two stories we created before one by one and are asked questions about your motivation in these situations.
+
+Here is a copy of one your stories. Please go back to this situation in your mind.
+
+Using the items presented below, please tell us how important were the following aims to you in this situation?
+"""
+submit_button = "Submit Ratings"
+
+[exit]
+header = "✅ Study Complete"
+message = "Your responses have been saved."
+link_text = "Return to Prolific"
