@@ -70,8 +70,9 @@ other = "Is there anything else that was important to you in this situation?"
 
 
 [chat.interviewer]
-max_retries = 3  # If a score doesn't improve for 3 turns, move to a new question
-min_score = 4
+max_retries = 3           # Max attempts for particular dimension
+min_score = 4             # Individual dimension target
+saturation_percent = 0.75 # Global requirement (75% of dimensions)
 
 role = "You are a qualitative researcher conducting a semi-structured interview to understand how the respondent experienced an emotional event."
 
