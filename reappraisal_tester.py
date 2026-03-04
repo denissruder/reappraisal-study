@@ -122,14 +122,26 @@ if 'page' not in st.session_state:
     st.session_state.page = 'consent'
 
 # --- 3. HELPER FUNCTIONS ---
-
 def init_event_state(idx):
     if f"hist_{idx}" not in st.session_state:
-        st.session_state[f"hist_{idx}"] = [] # Internal Q&A for LLM
-        st.session_state[f"msgs_{idx}"] = [] # UI Message objects
+        st.session_state[f"hist_{idx}"] = [] 
+        st.session_state[f"msgs_{idx}"] = [] 
         st.session_state[f"scores_{idx}"] = {k: 0 for k in config["chat"]["questions"].keys()}
         st.session_state[f"stall_counter_{idx}"] = 0
         st.session_state[f"turn_log_{idx}"] = []
+        
+        # --- NEW: TRIGGER INITIAL QUESTION ---
+        with st.spinner("Initializing chatbot..."):
+            # Call the LLM with empty history to get the first prompt
+            res = run_interviewer_turn(
+                GEMINI_API_KEY, 
+                st.session_state[f"hist_{idx}"], 
+                st.session_state[f"scores_{idx}"]
+            )
+            # Store the first question
+            from langchain_core.messages import AIMessage
+            st.session_state[f"msgs_{idx}"].append(AIMessage(content=res.conversational_response))
+            st.session_state[f"curr_q_{idx}"] = res.conversational_response
 
 def is_saturated(scores):
     """Python-side gate to decide if the interview is done."""
