@@ -258,29 +258,64 @@ def show_review():
             st.session_state.current_idx = 0 
             st.session_state.page = "motives"
         st.rerun()
-
 def show_motives():
+    # Use the persistent session state index to determine which event to show
     idx = st.session_state.current_idx
-    st.header(config["motives"]["header"])
-    st.markdown(config["motives"]["body"])
+    val = st.session_state.event_order[idx]
+    narrative = st.session_state[f"final_narrative_{idx}"]
     
-    motive_scores = {}
+    st.header(f"📊 Motive Ratings ({val} Event)")
+    st.markdown("Please review your narrative and rate the motives for this event below.")
+    
+    RADIO_OPTIONS = list(range(1, 10))
+    event_scores = {}
+
     with st.form(f"motive_form_{idx}"):
-        st.info(st.session_state[f"final_narrative_{idx}"])
-        for dim in MOTIVES_DATA:
-            c1, c2 = st.columns(2)
-            motive_scores[f"{dim['name']}_Promotion"] = c1.radio(dim["promotion"], range(1, 10), index=4, horizontal=True)
-            motive_scores[f"{dim['name']}_Prevention"] = c2.radio(dim["prevention"], range(1, 10), index=4, horizontal=True)
-            st.markdown("---")
+        # Narrative reference - Keep as unexpanded expander per your original
+        with st.expander(f"View {val.lower()} event narrative", expanded=False):
+            st.write(narrative)
             
+        # Motive rating grid using dimensions from TOML
+        for dim in config["motives"]["dimensions"]:
+            name = dim["name"]
+            pro = dim["promotion"]
+            prev = dim["prevention"]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                event_scores[f"{name}_Promotion"] = st.radio(
+                    f"{pro}", 
+                    options=RADIO_OPTIONS, 
+                    index=None, # Mandatory selection
+                    horizontal=True, 
+                    key=f"sit_{name}_pro_{idx}"
+                )
+            with col2:
+                event_scores[f"{name}_Prevention"] = st.radio(
+                    f"{prev}", 
+                    options=RADIO_OPTIONS, 
+                    index=None, 
+                    horizontal=True, 
+                    key=f"sit_{name}_prev_{idx}"
+                )
+            # Original tight border styling
+            st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
+
         if st.form_submit_button(config["motives"]["submit_button"]):
-            st.session_state[f"motive_scores_{idx}"] = motive_scores
+            # Validation: Check if all radio buttons were selected
+            if any(v is None for v in event_scores.values()):
+                st.error("Please provide a rating for all motives before submitting.")
+                return
+
+            st.session_state[f"motive_scores_{idx}"] = event_scores
+            
+            # Progression logic
             if idx == 0:
                 st.session_state.current_idx = 1
                 st.rerun()
             else:
                 with st.spinner("Finalizing study..."):
-                    save_to_firestore()
+                    save_to_firestore() # Call the final data bundle
                 st.session_state.page = "finish"
                 st.rerun()
 
