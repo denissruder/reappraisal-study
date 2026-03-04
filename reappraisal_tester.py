@@ -141,25 +141,25 @@ def is_saturated(scores):
     return len(covered) >= 5
 
 def save_to_firestore():
-    """Bundles all session data, scores, and AI reasoning into Firestore."""
+    """Captures the full state vector and AI metadata for research analysis."""
     data = {
-        "prolific_id": st.session_state.prolific_id,
-        "timestamp": datetime.datetime.now().isoformat(),
+        "prolific_id": st.session_state.get("prolific_id", "unknown"),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "event_results": []
     }
     
-    for i in range(2): # For both events
+    for i in range(2): # Logic for both Positive and Negative events
         data["event_results"].append({
             "valence": st.session_state.event_order[i],
             "chat_history": st.session_state[f"hist_{i}"],
-            "saturation_scores": st.session_state[f"scores_{i}"], # Saving the state vector
-            "ai_reasoning": st.session_state.get(f"reasoning_{i}"), # Saving the CoT/CoV log
+            "final_coverage_scores": st.session_state[f"scores_{i}"], # The State Vector
+            "ai_reasoning_log": st.session_state.get(f"reasoning_{i}"), # The CoT/CoV string
             "final_narrative": st.session_state[f"final_narrative_{i}"],
             "motive_ratings": st.session_state[f"motive_scores_{i}"],
-            "ux_metrics": st.session_state.get(f"ux_metrics_{i}")
+            "ux_feedback": st.session_state.get(f"ux_metrics_{i}")
         })
     
-    db.collection("prolific_study_results").add(data)
+    db.collection("reappraisal_study_results").add(data)
 
 # --- 4. PAGE RENDERING ---
 
@@ -333,10 +333,32 @@ def show_motives():
                 st.session_state.page = "finish"
                 st.rerun()
 
+def show_finish():
+    # Trigger celebration effect
+    st.balloons() 
+    
+    # Use Header from TOML
+    st.header(config["exit"]["header"]) 
+    
+    # Use Message from TOML
+    st.success(config["exit"]["message"]) 
+    
+    # Construct the Prolific URL using the code from TOML
+    completion_code = config["study"]["prolific_completion_code"]
+    prolific_url = f"https://app.prolific.com/submissions/complete?cc={completion_code}"
+    
+    # Use Link Text from TOML
+    st.link_button(config["exit"]["link_text"], prolific_url)
+
 # --- 5. ROUTER ---
 pages = {
-    "consent": show_consent, "chat": show_chat, 
-    "review": show_review, "motives": show_motives,
-    "finish": lambda: st.header(config["exit"]["header"])
+    "consent": show_consent, 
+    "chat": show_chat, 
+    "review": show_review, 
+    "motives": show_motives,
+    "finish": show_finish
 }
-pages[st.session_state.page]()
+
+# Execute the function based on the current session state
+if st.session_state.page in pages:
+    pages[st.session_state.page]()
