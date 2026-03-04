@@ -304,34 +304,34 @@ def show_motives():
             # Original tight border styling
             st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
-        # Use Submit Button text from TOML
-       if st.form_submit_button(config["motives"]["submit_button"]):
-            # 1. Identify all required dimension names from TOML
-            required_names = [dim["name"] for dim in config["motives"]["dimensions"]]
-            
-            # 2. Find which ones are missing a selection
-            missing_promotion = [n for n in required_names if event_scores.get(f"{n}_Promotion") is None]
-            missing_prevention = [n for n in required_names if event_scores.get(f"{n}_Prevention") is None]
-            
-            # Combine unique names that have at least one missing radio selection
-            all_missing = sorted(list(set(missing_promotion + missing_prevention)))
-            
-            if all_missing:
-                # 3. Show a specific error message listing the skipped motives
-                st.error(f"Please provide ratings for the following motives: {', '.join(all_missing)}")
-                return
-            
-            # If all are filled, save and progress
-            st.session_state[f"motive_scores_{idx}"] = event_scores
-            
-            if idx == 0:
-                st.session_state.current_idx = 1
-                st.rerun()
-            else:
-                with st.spinner("Saving your data..."):
-                    save_to_firestore() 
-                st.session_state.page = "finish"
-                st.rerun()
+    # Use Submit Button text from TOML
+   if st.form_submit_button(config["motives"]["submit_button"]):
+        # 1. Identify all required dimension names from TOML
+        required_names = [dim["name"] for dim in config["motives"]["dimensions"]]
+        
+        # 2. Find which ones are missing a selection
+        missing_promotion = [n for n in required_names if event_scores.get(f"{n}_Promotion") is None]
+        missing_prevention = [n for n in required_names if event_scores.get(f"{n}_Prevention") is None]
+        
+        # Combine unique names that have at least one missing radio selection
+        all_missing = sorted(list(set(missing_promotion + missing_prevention)))
+        
+        if all_missing:
+            # 3. Show a specific error message listing the skipped motives
+            st.error(f"Please provide ratings for the following motives: {', '.join(all_missing)}")
+            return
+        
+        # If all are filled, save and progress
+        st.session_state[f"motive_scores_{idx}"] = event_scores
+        
+        if idx == 0:
+            st.session_state.current_idx = 1
+            st.rerun()
+        else:
+            with st.spinner("Saving your data..."):
+                save_to_firestore() 
+            st.session_state.page = "finish"
+            st.rerun()
 
 # --- 5. ROUTER ---
 pages = {
