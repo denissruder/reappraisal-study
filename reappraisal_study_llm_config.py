@@ -79,18 +79,28 @@ def run_synthesizer(api_key, history):
     return structured_synth.invoke(prompt)
 
 # --- SATURATION LOGIC ---
-
 def check_interview_saturation(current_scores, previous_scores, stall_counter):
-    """Programmatic safety net to prevent tedious loops."""
-    # Depth: Event and Feeling must be substantial
-    is_deep = current_scores.get("event", 0) >= 6 and current_scores.get("feeling", 0) >= 6
+    """
+    Evaluates interview completion based on coverage score and saturation percentage.
+    """
+    # 1. Fetch Thresholds
+    m_score = config["chat"]["interviewer"]["min_score"]
+    sat_p = config["chat"]["interviewer"].get("saturation_percent", 0.75)
+    total_q = len(config["chat"]["questions"])
     
-    # Breadth: At least 5/8 of the questions met the min_score
-    min_target = config["chat"]["interviewer"]["min_score"]
-    covered_count = len([s for s in current_scores.values() if s >= min_target])
-    is_broad = covered_count >= 5
+    # 2. DEPTH CHECK: Core foundational dimensions (Event & Feeling)
+    # These MUST meet the min_score for the interview to ever finish normally.
+    is_deep = (current_scores.get("event", 0) >= m_score and 
+               current_scores.get("feeling", 0) >= m_score)
+    
+    # 3. SATURATION CHECK
+    # Calculate how many questions need to pass the min_score (e.g., 8 * 0.75 = 6)
+    required_count = max(1, int(total_q * sat_p)) 
+    current_saturated_count = len([s for s in current_scores.values() if s >= m_score])
+    is_saturated = current_saturated_count >= required_count
 
-    # Progress Check: Did the total information grow?
+    # 4. STALL CHECK (Patience)
+    # If the total sum of scores across the vector hasn't increased, increment stall.
     if sum(current_scores.values()) <= sum(previous_scores.values()):
         stall_counter += 1
     else:
@@ -98,7 +108,9 @@ def check_interview_saturation(current_scores, previous_scores, stall_counter):
 
     is_stalled = stall_counter >= config["chat"]["interviewer"]["max_retries"]
     
-    # Trigger exit if we have depth AND (either enough breadth OR we have hit a wall)
-    should_finish = is_deep and (is_broad or is_stalled)
+    # 5. FINAL GATE
+    # The user can leave if they have provided deep foundations AND 
+    # (they have covered enough other topics OR we've hit a dead end).
+    should_finish = is_deep and (is_saturated or is_stalled)
     
     return should_finish, stall_counter
