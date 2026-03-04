@@ -195,22 +195,27 @@ def show_chat():
     st.header(config["chat"]["header"].format(val=val))
     st.markdown(config["chat"]["body"])
 
-    # Display Chat History
+    # 1. Display Chat History from the UI list
     for msg in st.session_state[f"msgs_{idx}"]:
         st.chat_message(msg.type).write(msg.content)
 
+    # 2. Handle User Input
     if user_input := st.chat_input(config["chat"]["input_placeholder"]):
-        # 1. Add user message to UI
-        st.chat_message("human").write(user_input)
+        # Add user message to UI immediately
+        st.session_state[f"msgs_{idx}"].append(HumanMessage(content=user_input))
         
-        # 2. Capture state before the turn to check for progress
+        # Capture state before the turn
         old_scores = st.session_state[f"scores_{idx}"].copy()
         
         with st.spinner(config["interface"]["loading_state"]):
-            # 3. Call the Logic Worker
+            # Pair the PREVIOUS question with the CURRENT answer in history
+            current_q = st.session_state.get(f"curr_q_{idx}", "Initial Question")
+            st.session_state[f"hist_{idx}"].append({"question": current_q, "answer": user_input})
+
+            # Call the LLM Logic
             res = run_interviewer_turn(GEMINI_API_KEY, st.session_state[f"hist_{idx}"], old_scores)
             
-            # 4. LOG EVERYTHING for research audit
+            # Log the turn data
             turn_entry = {
                 "turn": len(st.session_state[f"hist_{idx}"]),
                 "user_input": user_input,
@@ -220,12 +225,11 @@ def show_chat():
             }
             st.session_state[f"turn_log_{idx}"].append(turn_entry)
             
-            # 5. Update State
+            # Update scores and the "Next Question" to be answered
             st.session_state[f"scores_{idx}"] = res.coverage_scores
-            st.session_state[f"hist_{idx}"].append({"question": st.session_state.get(f"curr_q_{idx}", "Intro"), "answer": user_input})
             st.session_state[f"curr_q_{idx}"] = res.conversational_response
             
-            # 6. Check Saturation / Stalling
+            # Check for completion
             should_finish, updated_stall = check_interview_saturation(
                 res.coverage_scores, 
                 old_scores, 
@@ -234,14 +238,12 @@ def show_chat():
             st.session_state[f"stall_counter_{idx}"] = updated_stall
 
             if should_finish:
-                # Transition to Synthesis
                 synth = run_synthesizer(GEMINI_API_KEY, st.session_state[f"hist_{idx}"])
                 st.session_state[f"raw_narrative_{idx}"] = synth.final_narrative
                 st.session_state[f"reasoning_{idx}"] = synth.reasoning 
                 st.session_state.page = "review"
             else:
-                # Add AI response to UI and stay on chat page
-                from langchain_core.messages import AIMessage
+                # Add the NEW AI question to the UI message list
                 st.session_state[f"msgs_{idx}"].append(AIMessage(content=res.conversational_response))
             
         st.rerun()
