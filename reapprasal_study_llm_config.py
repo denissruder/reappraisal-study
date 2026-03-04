@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import Dict
 
 # Load the configuration
-config = toml.load("reapprasal_study_config.toml")
+config = toml.load("reappraisal_study_config.toml")
 
 # --- DATA MODELS ---
 
