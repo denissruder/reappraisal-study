@@ -146,7 +146,11 @@ def show_review():
     r4 = st.slider(config["review"]["rating_4"], 1, 9, 5)
     
     # 3. Open-ended Feedback
-    user_feedback = st.text_input(config["review"]["feedback"])
+    user_feedback = st.text_area(
+        config["review"]["feedback"], 
+        height=100,  # This ensures it is roughly 3-4 lines tall
+        placeholder="Type your thoughts here..."
+    )  
 
     if st.button(config["review"]["confirm_button"], type="primary"):
         st.session_state[f"final_narrative_{idx}"] = narrative
