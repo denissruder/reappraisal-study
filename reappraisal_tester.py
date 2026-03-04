@@ -133,17 +133,34 @@ def show_review():
     st.header(config["review"]["header"])
     st.markdown(config["review"]["body"])
     
-    narrative = st.text_area("Final Narrative:", value=st.session_state[f"raw_narrative_{idx}"], height=300)
+    # 1. Narrative Review Area
+    narrative = st.text_area("Edit your story:", value=st.session_state[f"raw_narrative_{idx}"], height=300)
     
-    st.subheader("Feedback")
-    f1 = st.slider(config["review"]["rating_1"], 1, 9, 5)
-    f2 = st.slider(config["review"]["rating_2"], 1, 9, 5)
+    # 2. Qualitative Feedback Ratings (All 4 items from TOML)
+    st.divider()
+    st.subheader("How accurate is this summary?")
+    
+    r1 = st.slider(config["review"]["rating_1"], 1, 9, 5)
+    r2 = st.slider(config["review"]["rating_2"], 1, 9, 5)
+    r3 = st.slider(config["review"]["rating_3"], 1, 9, 5)
+    r4 = st.slider(config["review"]["rating_4"], 1, 9, 5)
+    
+    # 3. Open-ended Feedback
+    user_feedback = st.text_input(config["review"]["feedback"])
 
     if st.button(config["review"]["confirm_button"], type="primary"):
         st.session_state[f"final_narrative_{idx}"] = narrative
-        st.session_state[f"ux_metrics_{idx}"] = {"captures": f1, "voice": f2}
         
-        # Progression logic
+        # Package all 5 data points for the research log
+        st.session_state[f"ux_metrics_{idx}"] = {
+            "captures_experience": r1,
+            "sounds_like_me": r2,
+            "left_out_aspects": r3,
+            "confabulated_details": r4,
+            "qualitative_notes": user_feedback
+        }
+        
+        # Progression logic to next event or final motive phase
         if idx == 0:
             st.session_state.current_idx = 1
             st.session_state.page = "chat"
