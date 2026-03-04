@@ -93,7 +93,12 @@ div[data-testid="stVerticalBlock"] {
 
 # --- 1. CORE CONFIG & LOGIC LOADING ---
 import toml
-from reapprasal_study_llm_config import run_interviewer_turn, run_synthesizer, config
+from reapprasal_study_llm_config import (
+    run_interviewer_turn, 
+    run_synthesizer, 
+    check_interview_saturation, 
+    config
+)
 
 # Retrieve API Key from Secrets
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -119,17 +124,12 @@ if 'page' not in st.session_state:
 # --- 3. HELPER FUNCTIONS ---
 
 def init_event_state(idx):
-    """Initializes tracking for a specific event (0 or 1)."""
-    if f"scores_{idx}" not in st.session_state:
-        # State Vector initialized to 0
-        st.session_state[f"scores_{idx}"] = {k: 0 for k in config["chat"]["questions"].keys()}
-    if f"msgs_{idx}" not in st.session_state:
-        # Start with the first question from TOML
-        st.session_state[f"msgs_{idx}"] = [AIMessage(content=config["chat"]["questions"]["event"])]
     if f"hist_{idx}" not in st.session_state:
-        st.session_state[f"hist_{idx}"] = []
-    if f"curr_q_{idx}" not in st.session_state:
-        st.session_state[f"curr_q_{idx}"] = config["chat"]["questions"]["event"]
+        st.session_state[f"hist_{idx}"] = [] # Internal Q&A for LLM
+        st.session_state[f"msgs_{idx}"] = [] # UI Message objects
+        st.session_state[f"scores_{idx}"] = {k: 0 for k in config["chat"]["questions"].keys()}
+        st.session_state[f"stall_counter_{idx}"] = 0
+        st.session_state[f"turn_log_{idx}"] = []
 
 def is_saturated(scores):
     """Python-side gate to decide if the interview is done."""
@@ -141,22 +141,22 @@ def is_saturated(scores):
     return len(covered) >= 5
 
 def save_to_firestore():
-    """Captures the full state vector and AI metadata for research analysis."""
     data = {
         "prolific_id": st.session_state.get("prolific_id", "unknown"),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "completion_code": config["study"]["prolific_completion_code"],
         "event_results": []
     }
     
-    for i in range(2): # Logic for both Positive and Negative events
+    for i in range(2):
         data["event_results"].append({
             "valence": st.session_state.event_order[i],
-            "chat_history": st.session_state[f"hist_{i}"],
-            "final_coverage_scores": st.session_state[f"scores_{i}"], # The State Vector
-            "ai_reasoning_log": st.session_state.get(f"reasoning_{i}"), # The CoT/CoV string
+            "turn_log": st.session_state[f"turn_log_{i}"],      
+            "final_scores": st.session_state[f"scores_{i}"],
             "final_narrative": st.session_state[f"final_narrative_{i}"],
-            "motive_ratings": st.session_state[f"motive_scores_{i}"],
-            "ux_feedback": st.session_state.get(f"ux_metrics_{i}")
+            "synthesis_reasoning": st.session_state.get(f"reasoning_{i}"),
+            "motive_ratings": st.session_state.get(f"motive_scores_{i}"),
+            "ux_metrics": st.session_state.get(f"ux_metrics_{i}")
         })
     
     db.collection("reappraisal_study_results").add(data)
@@ -179,39 +179,59 @@ def show_chat():
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     init_event_state(idx)
-    
-    st.header(config["chat"]["header"].format(val=val))
-    st.info(config["chat"]["body"])
 
-    # Render History
-    for m in st.session_state[f"msgs_{idx}"]:
-        with st.chat_message("user" if isinstance(m, HumanMessage) else "assistant"):
-            st.write(m.content)
+    st.header(config["chat"]["header"].format(val=val))
+    st.markdown(config["chat"]["body"])
+
+    # Display Chat History
+    for msg in st.session_state[f"msgs_{idx}"]:
+        st.chat_message(msg.type).write(msg.content)
 
     if user_input := st.chat_input(config["chat"]["input_placeholder"]):
-        st.session_state[f"msgs_{idx}"].append(HumanMessage(content=user_input))
-        st.session_state[f"hist_{idx}"].append({
-            "question": st.session_state[f"curr_q_{idx}"], 
-            "answer": user_input
-        })
+        # 1. Add user message to UI
+        st.chat_message("human").write(user_input)
+        
+        # 2. Capture state before the turn to check for progress
+        old_scores = st.session_state[f"scores_{idx}"].copy()
         
         with st.spinner(config["interface"]["loading_state"]):
-            # 1. Interviewer Turn
-            res = run_interviewer_turn(GEMINI_API_KEY, st.session_state[f"hist_{idx}"], st.session_state[f"scores_{idx}"])
+            # 3. Call the Logic Worker
+            res = run_interviewer_turn(GEMINI_API_KEY, st.session_state[f"hist_{idx}"], old_scores)
             
-            # 2. Update Scores
+            # 4. LOG EVERYTHING for research audit
+            turn_entry = {
+                "turn": len(st.session_state[f"hist_{idx}"]),
+                "user_input": user_input,
+                "ai_response": res.conversational_response,
+                "ai_reasoning": res.reasoning,
+                "scores_after_turn": res.coverage_scores
+            }
+            st.session_state[f"turn_log_{idx}"].append(turn_entry)
+            
+            # 5. Update State
             st.session_state[f"scores_{idx}"] = res.coverage_scores
+            st.session_state[f"hist_{idx}"].append({"question": st.session_state.get(f"curr_q_{idx}", "Intro"), "answer": user_input})
+            st.session_state[f"curr_q_{idx}"] = res.conversational_response
             
-            # 3. Decision Gate
-            if is_saturated(res.coverage_scores):
-                # 4. Synthesis
+            # 6. Check Saturation / Stalling
+            should_finish, updated_stall = check_interview_saturation(
+                res.coverage_scores, 
+                old_scores, 
+                st.session_state[f"stall_counter_{idx}"]
+            )
+            st.session_state[f"stall_counter_{idx}"] = updated_stall
+
+            if should_finish:
+                # Transition to Synthesis
                 synth = run_synthesizer(GEMINI_API_KEY, st.session_state[f"hist_{idx}"])
                 st.session_state[f"raw_narrative_{idx}"] = synth.final_narrative
-                st.session_state[f"reasoning_{idx}"] = synth.reasoning # Store reasoning log
+                st.session_state[f"reasoning_{idx}"] = synth.reasoning 
                 st.session_state.page = "review"
             else:
+                # Add AI response to UI and stay on chat page
+                from langchain_core.messages import AIMessage
                 st.session_state[f"msgs_{idx}"].append(AIMessage(content=res.conversational_response))
-                st.session_state[f"curr_q_{idx}"] = res.conversational_response
+            
         st.rerun()
 
 def show_review():
