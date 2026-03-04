@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 # --- 1. CORE CONFIG & LOGIC LOADING ---
 import toml
-from reapprasal-study_llm_config import run_interviewer_turn, run_synthesizer, config
+from reapprasal_study_llm_config import run_interviewer_turn, run_synthesizer, config
 
 # Retrieve API Key from Secrets
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
