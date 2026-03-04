@@ -274,11 +274,11 @@ def show_motives():
     event_scores = {}
 
     with st.form(f"motive_form_{idx}"):
-        # Narrative reference - Keep as unexpanded expander per your original
+        # 1. Narrative reference expander
         with st.expander(f"View your {val.lower()} event story", expanded=False):
             st.write(narrative)
             
-        # Motive rating grid using dimensions from TOML
+        # 2. The Rating Loop
         for dim in config["motives"]["dimensions"]:
             name = dim["name"]
             pro = dim["promotion"]
@@ -286,52 +286,32 @@ def show_motives():
             
             col1, col2 = st.columns(2)
             with col1:
-                event_scores[f"{name}_Promotion"] = st.radio(
-                    f"{pro}", 
-                    options=RADIO_OPTIONS, 
-                    index=None, # Mandatory selection
-                    horizontal=True, 
-                    key=f"sit_{name}_pro_{idx}"
-                )
+                event_scores[f"{name}_Promotion"] = st.radio(f"{pro}", options=RADIO_OPTIONS, index=None, horizontal=True, key=f"sit_{name}_pro_{idx}")
             with col2:
-                event_scores[f"{name}_Prevention"] = st.radio(
-                    f"{prev}", 
-                    options=RADIO_OPTIONS, 
-                    index=None, 
-                    horizontal=True, 
-                    key=f"sit_{name}_prev_{idx}"
-                )
-            # Original tight border styling
+                event_scores[f"{name}_Prevention"] = st.radio(f"{prev}", options=RADIO_OPTIONS, index=None, horizontal=True, key=f"sit_{name}_prev_{idx}")
+            
             st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
-    # Use Submit Button text from TOML
-   if st.form_submit_button(config["motives"]["submit_button"]):
-        # 1. Identify all required dimension names from TOML
-        required_names = [dim["name"] for dim in config["motives"]["dimensions"]]
-        
-        # 2. Find which ones are missing a selection
-        missing_promotion = [n for n in required_names if event_scores.get(f"{n}_Promotion") is None]
-        missing_prevention = [n for n in required_names if event_scores.get(f"{n}_Prevention") is None]
-        
-        # Combine unique names that have at least one missing radio selection
-        all_missing = sorted(list(set(missing_promotion + missing_prevention)))
-        
-        if all_missing:
-            # 3. Show a specific error message listing the skipped motives
-            st.error(f"Please provide ratings for the following motives: {', '.join(all_missing)}")
-            return
-        
-        # If all are filled, save and progress
-        st.session_state[f"motive_scores_{idx}"] = event_scores
-        
-        if idx == 0:
-            st.session_state.current_idx = 1
-            st.rerun()
-        else:
-            with st.spinner("Saving your data..."):
-                save_to_firestore() 
-            st.session_state.page = "finish"
-            st.rerun()
+        # 3. The Submit Button (MUST be indented exactly like the 'for' loop above)
+        if st.form_submit_button(config["motives"]["submit_button"]):
+            # Validation Logic
+            required_names = [d["name"] for d in config["motives"]["dimensions"]]
+            missing = [n for n in required_names if event_scores.get(f"{n}_Promotion") is None or event_scores.get(f"{n}_Prevention") is None]
+            
+            if missing:
+                st.error(f"Please provide ratings for: {', '.join(missing)}")
+                return
+
+            st.session_state[f"motive_scores_{idx}"] = event_scores
+            
+            if idx == 0:
+                st.session_state.current_idx = 1
+                st.rerun()
+            else:
+                with st.spinner("Saving your data..."):
+                    save_to_firestore()
+                st.session_state.page = "finish"
+                st.rerun()
 
 # --- 5. ROUTER ---
 pages = {
