@@ -315,12 +315,12 @@ def show_motives():
             
             # Combine unique names that have at least one missing radio selection
             all_missing = sorted(list(set(missing_promotion + missing_prevention)))
-
+            
             if all_missing:
                 # 3. Show a specific error message listing the skipped motives
                 st.error(f"Please provide ratings for the following motives: {', '.join(all_missing)}")
                 return
-
+            
             # If all are filled, save and progress
             st.session_state[f"motive_scores_{idx}"] = event_scores
             
