@@ -93,7 +93,7 @@ div[data-testid="stVerticalBlock"] {
 
 # --- 1. CORE CONFIG & LOGIC LOADING ---
 import toml
-from reapprasal_study_llm_config import (
+from reappraisal_study_llm_config import (
     run_interviewer_turn, 
     run_synthesizer, 
     check_interview_saturation, 
