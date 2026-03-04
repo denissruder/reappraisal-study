@@ -281,27 +281,47 @@ def show_motives():
         # 2. The Rating Loop
         for dim in config["motives"]["dimensions"]:
             name = dim["name"]
-            pro = dim["promotion"]
-            prev = dim["prevention"]
+            pro_label = dim["promotion"]
+            prev_label = dim["prevention"]
             
             col1, col2 = st.columns(2)
             with col1:
-                event_scores[f"{name}_Promotion"] = st.radio(f"{pro}", options=RADIO_OPTIONS, index=None, horizontal=True, key=f"sit_{name}_pro_{idx}")
+                event_scores[f"{name}_Promotion"] = st.radio(
+                    pro_label, 
+                    options=RADIO_OPTIONS, 
+                    index=None, 
+                    horizontal=True, 
+                    key=f"sit_{name}_pro_{idx}"
+                )
             with col2:
-                event_scores[f"{name}_Prevention"] = st.radio(f"{prev}", options=RADIO_OPTIONS, index=None, horizontal=True, key=f"sit_{name}_prev_{idx}")
+                event_scores[f"{name}_Prevention"] = st.radio(
+                    prev_label, 
+                    options=RADIO_OPTIONS, 
+                    index=None, 
+                    horizontal=True, 
+                    key=f"sit_{name}_prev_{idx}"
+                )
             
             st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
-        # 3. The Submit Button (MUST be indented exactly like the 'for' loop above)
+        # 3. The Submit Button
         if st.form_submit_button(config["motives"]["submit_button"]):
-            # Validation Logic
-            required_names = [d["name"] for d in config["motives"]["dimensions"]]
-            missing = [n for n in required_names if event_scores.get(f"{n}_Promotion") is None or event_scores.get(f"{n}_Prevention") is None]
+            missing_labels = []
             
-            if missing:
-                st.error(f"Please provide ratings for: {', '.join(missing)}")
+            # Check each dimension for missing values and grab the specific label
+            for dim in config["motives"]["dimensions"]:
+                name = dim["name"]
+                if event_scores.get(f"{name}_Promotion") is None:
+                    missing_labels.append(f"'{dim['promotion']}'")
+                if event_scores.get(f"{name}_Prevention") is None:
+                    missing_labels.append(f"'{dim['prevention']}'")
+            
+            if missing_labels:
+                # Show the user the exact text of the question they missed
+                st.error(f"Please provide ratings for: {', '.join(missing_labels)}")
                 return
 
+            # Success: Save and Progress
             st.session_state[f"motive_scores_{idx}"] = event_scores
             
             if idx == 0:
