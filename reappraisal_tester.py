@@ -258,21 +258,24 @@ def show_review():
             st.session_state.current_idx = 0 
             st.session_state.page = "motives"
         st.rerun()
+        
 def show_motives():
     # Use the persistent session state index to determine which event to show
     idx = st.session_state.current_idx
     val = st.session_state.event_order[idx]
     narrative = st.session_state[f"final_narrative_{idx}"]
     
-    st.header(f"📊 Motive Ratings ({val} Event)")
-    st.markdown("Please review your narrative and rate the motives for this event below.")
+    # Use Header from TOML
+    st.header(config["motives"]["header"])
+    # Use Body from TOML
+    st.markdown(config["motives"]["body"])
     
     RADIO_OPTIONS = list(range(1, 10))
     event_scores = {}
 
     with st.form(f"motive_form_{idx}"):
         # Narrative reference - Keep as unexpanded expander per your original
-        with st.expander(f"View {val.lower()} event narrative", expanded=False):
+        with st.expander(f"View your {val.lower()} event story", expanded=False):
             st.write(narrative)
             
         # Motive rating grid using dimensions from TOML
@@ -301,6 +304,7 @@ def show_motives():
             # Original tight border styling
             st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
+        # Use Submit Button text from TOML
         if st.form_submit_button(config["motives"]["submit_button"]):
             # Validation: Check if all radio buttons were selected
             if any(v is None for v in event_scores.values()):
@@ -314,8 +318,9 @@ def show_motives():
                 st.session_state.current_idx = 1
                 st.rerun()
             else:
-                with st.spinner("Finalizing study..."):
-                    save_to_firestore() # Call the final data bundle
+                # Save the complete study data before exiting
+                with st.spinner("Saving your data..."):
+                    save_to_firestore() 
                 st.session_state.page = "finish"
                 st.rerun()
 
