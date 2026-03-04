@@ -4,7 +4,7 @@ from typing import Dict
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Load the Brain
-config = toml.load("reapprasal-study_config.toml")
+config = toml.load("reapprasal_study_config.toml")
 
 # --- SCHEMAS ---
 class InterviewTurn(BaseModel):
