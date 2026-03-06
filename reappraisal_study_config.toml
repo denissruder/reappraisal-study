@@ -47,15 +47,19 @@ confirm_button = "Agree and Start Study"
 
 [chat]
 header = "Describe your {val} Event"
-body = """
-In this study, you will be asked to talk to a chatbot about two events … and fill in a questionnaire. The chatbot will ask follow-up questions. 
+intro_instruction = """ 
+In this study, you will be asked to talk to a chatbot about two events … and fill in a questionnaire. The chatbot will ask follow-up questions.
+"""
 
-Please think of a recent situation that made you feel at least some negative/positive emotions. 
+body_template = """
+
+Please think of a recent situation that made you feel at least some **{val_text}** emotions. 
 
 The situation should be fairly recent, from the past week or so. It is helpful if it has come to an end by now. 
 
-The situation should be emotionally primarily negative/positive although it might have included a mixture of different feelings. It does not have to be the most intense positive/negative event from the past week or so, although it can be. Make sure it is an event you remember well and that you feel comfortable talking about. Also, remember that the story you write can be read by other participants.
+The situation should be emotionally primarily **{val_text}** although it might have included a mixture of different feelings. It does not have to be the most intense positive/negative event from the past week or so, although it can be. Make sure it is an event you remember well and that you feel comfortable talking about. Also, remember that the story you write can be read by other participants.
 """
+
 input_placeholder = "Type your response..."
 
 [chat.questions]
