@@ -309,8 +309,16 @@ def show_review():
         st.rerun()
         
 def show_motives():
-    # Use the persistent session state index to determine which event to show
-    idx = st.session_state.current_idx
+    # 1. Safety Check: Ensure we have the necessary data
+    idx = st.session_state.get("current_idx", 0)
+    
+    # Check if the required narrative exists before rendering anything
+    if f"final_narrative_{idx}" not in st.session_state:
+        st.warning("Loading motive appraisal phase...")
+        st.rerun()
+        return
+
+    # 2. Proceed with normal rendering
     val = st.session_state.event_order[idx]
     narrative = st.session_state[f"final_narrative_{idx}"]
     
