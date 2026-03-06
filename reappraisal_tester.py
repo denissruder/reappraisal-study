@@ -305,33 +305,35 @@ def show_review():
         st.rerun()
         
 def show_motives():
-    # 1. Safety Check: Ensure we have the necessary data
+    # 1. Get current index
     idx = st.session_state.get("current_idx", 0)
     
-    # Check if the required narrative exists before rendering anything
-    if f"final_narrative_{idx}" not in st.session_state:
-        st.warning("Loading motive appraisal phase...")
-        st.rerun()
-        return
-
-    # 2. Proceed with normal rendering
-    val = st.session_state.event_order[idx]
-    narrative = st.session_state[f"final_narrative_{idx}"]
+    # 2. Check for data existence QUIETLY
+    # Use .get() to avoid KeyErrors and check if narrative exists
+    narrative = st.session_state.get(f"final_narrative_{idx}")
     
-    # Use Header from TOML
+    if not narrative:
+        # If we are somehow here without data, reset to safety 
+        # instead of showing a warning that triggers the form error
+        st.session_state.current_idx = 0
+        st.session_state.page = "chat"
+        st.rerun()
+        return # Ensure we exit the function here
+
+    # 3. Proceed with normal rendering ONLY if data is confirmed
+    val = st.session_state.event_order[idx]
+    
     st.header(config["motives"]["header"])
-    # Use Body from TOML
     st.markdown(config["motives"]["body"])
     
     RADIO_OPTIONS = list(range(1, 10))
     event_scores = {}
 
-    with st.form(f"motive_form_{idx}"):
-        # 1. Narrative reference expander
+    # Use a unique key for the form based on index to prevent cross-talk
+    with st.form(f"motive_form_v2_{idx}"):
         with st.expander(f"View your {val.lower()} event story", expanded=False):
             st.write(narrative)
             
-        # 2. The Rating Loop
         for dim in config["motives"]["dimensions"]:
             name = dim["name"]
             pro_label = dim["promotion"]
@@ -340,25 +342,17 @@ def show_motives():
             col1, col2 = st.columns(2)
             with col1:
                 event_scores[f"{name}_Promotion"] = st.radio(
-                    pro_label, 
-                    options=RADIO_OPTIONS, 
-                    index=None, 
-                    horizontal=True, 
-                    key=f"sit_{name}_pro_{idx}"
+                    pro_label, options=RADIO_OPTIONS, index=None, horizontal=True, key=f"r_pro_{idx}_{name}"
                 )
             with col2:
                 event_scores[f"{name}_Prevention"] = st.radio(
-                    prev_label, 
-                    options=RADIO_OPTIONS, 
-                    index=None, 
-                    horizontal=True, 
-                    key=f"sit_{name}_prev_{idx}"
+                    prev_label, options=RADIO_OPTIONS, index=None, horizontal=True, key=f"r_prev_{idx}_{name}"
                 )
-            
             st.markdown("<hr style='margin: -8px 0 2px 0; border: 0.5px solid #eee;'>", unsafe_allow_html=True)
 
-        # 3. The Submit Button
-        if st.form_submit_button(config["motives"]["submit_button"]):
+        submit = st.form_submit_button(config["motives"]["submit_button"])
+        
+        if submit:
             missing_labels = []
             
             # Check each dimension for missing values and grab the specific label
