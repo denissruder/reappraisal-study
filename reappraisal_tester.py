@@ -198,10 +198,6 @@ def show_chat():
     
     st.header(config["chat"]["header"].format(val=val))
 
-    # Show the Intro Instruction ONLY for the first event (idx 0)
-    if idx == 0:
-        st.info(config["chat"]["intro_instruction"])
-
     # Format the body text based on valence
     body_text = config["chat"]["body_template"].format(val_text=val.lower())
     st.markdown(body_text)
