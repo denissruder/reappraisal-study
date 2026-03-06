@@ -48,7 +48,7 @@ confirm_button = "Agree and Start Study"
 [chat]
 header = "Describe your {val} Event"
 
-body_template = """
+body = """
 Please think of a recent situation that made you feel at least some **{val_text}** emotions. The chatbot will ask follow-up questions.
 
 The situation should be fairly recent, from the past week or so. It is helpful if it has come to an end by now. 
