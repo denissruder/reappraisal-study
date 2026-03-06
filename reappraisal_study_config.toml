@@ -49,13 +49,11 @@ confirm_button = "Agree and Start Study"
 header = "Describe your {val} Event"
 
 body_template = """
-Please think of a recent situation that made you feel at least some **{val_text}** emotions. 
+Please think of a recent situation that made you feel at least some **{val_text}** emotions. The chatbot will ask follow-up questions.
 
 The situation should be fairly recent, from the past week or so. It is helpful if it has come to an end by now. 
 
 The situation should be emotionally primarily **{val_text}** although it might have included a mixture of different feelings. It does not have to be the most intense positive/negative event from the past week or so, although it can be. Make sure it is an event you remember well and that you feel comfortable talking about. Also, remember that the story you write can be read by other participants.
-
-The chatbot will ask follow-up questions.
 """
 
 input_placeholder = "Type your response..."
