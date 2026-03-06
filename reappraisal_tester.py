@@ -416,6 +416,10 @@ pages = {
     "finish": show_finish
 }
 
-# Execute the function based on the current session state
 if st.session_state.page in pages:
-    pages[st.session_state.page]()
+    try:
+        pages[st.session_state.page]()
+    except Exception as e:
+        st.error(f"DEBUG: Error on page '{st.session_state.page}'")
+        st.exception(e) 
+        st.stop() # Stops execution so the error stays visible
