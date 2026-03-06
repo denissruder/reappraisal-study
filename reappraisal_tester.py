@@ -189,11 +189,18 @@ def show_consent():
 
 def show_chat():
     idx = st.session_state.current_idx
-    val = st.session_state.event_order[idx]
+    val = st.session_state.event_order[idx] # "Negative" or "Positive"
     init_event_state(idx)
-
+    
     st.header(config["chat"]["header"].format(val=val))
-    st.markdown(config["chat"]["body"])
+
+    # Show the Intro Instruction ONLY for the first event (idx 0)
+    if idx == 0:
+        st.info(config["chat"]["intro_instruction"])
+
+    # Format the body text based on valence
+    body_text = config["chat"]["body_template"].format(val_text=val.lower())
+    st.markdown(body_text)
 
     # 1. Create a persistent container for messages
     chat_container = st.container()
