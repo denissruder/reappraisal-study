@@ -199,7 +199,7 @@ def show_chat():
     st.header(config["chat"]["header"].format(val=val))
 
     # Format the body text based on valence
-    body_text = config["chat"]["body_template"].format(val_text=val.lower())
+    body_text = config["chat"]["body"].format(val_text=val.lower())
     st.markdown(body_text)
 
     # 1. Create a persistent container for messages
