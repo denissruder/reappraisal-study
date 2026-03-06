@@ -3,6 +3,7 @@ import os
 import json
 import datetime
 import uuid
+import random
 from langchain_core.messages import HumanMessage, AIMessage
 
 # Inject minimal CSS for a cleaner, tighter look
@@ -182,7 +183,10 @@ def show_consent():
     st.session_state.prolific_id = st.query_params.get("PROLIFIC_PID", "test_user")
     
     if st.button(config["consent"]["confirm_button"], type="primary"):
-        st.session_state.event_order = ["Negative", "Positive"]
+        # Randomize the order: ["Positive", "Negative"] or ["Negative", "Positive"]
+        order = ["Negative", "Positive"]
+        random.shuffle(order)
+        st.session_state.event_order = order
         st.session_state.current_idx = 0
         st.session_state.page = "chat"
         st.rerun()
